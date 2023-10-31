@@ -1,0 +1,6 @@
+[submodule "swimnetworks"]
+	path = swimnetworks
+	url = https://gitlab.com/felix.dietrich/swimnetworks.git
+[submodule "swimnetworks-paper"]
+	path = swimnetworks-paper
+	url = https://gitlab.com/felix.dietrich/swimnetworks-paper.git
