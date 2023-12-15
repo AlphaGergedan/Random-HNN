@@ -1,12 +1,15 @@
 name: thesis
 channels:
+  - anaconda
   - pytorch
   - nvidia
   - conda-forge
+  - psi4/label/sprints
   - defaults
 dependencies:
   - _libgcc_mutex=0.1=main
   - _openmp_mutex=5.1=1_gnu
+  - abc=2.0=0
   - anyio=4.0.0=pyhd8ed1ab_0
   - argon2-cffi=23.1.0=pyhd8ed1ab_0
   - argon2-cffi-bindings=21.2.0=py311h5eee18b_0
@@ -21,12 +24,13 @@ dependencies:
   - beautifulsoup4=4.12.2=pyha770c72_0
   - blas=1.0=mkl
   - bleach=6.1.0=pyhd8ed1ab_0
+  - bottleneck=1.3.5=py311hbed6279_0
   - brotli=1.0.9=h5eee18b_7
   - brotli-bin=1.0.9=h5eee18b_7
   - brotli-python=1.0.9=py311h6a678d5_7
   - bzip2=1.0.8=h7b6447c_0
-  - ca-certificates=2023.7.22=hbcca054_0
-  - certifi=2023.7.22=pyhd8ed1ab_0
+  - ca-certificates=2023.11.17=hbcca054_0
+  - certifi=2023.11.17=pyhd8ed1ab_0
   - cffi=1.15.1=py311h5eee18b_3
   - charset-normalizer=3.3.1=pyhd8ed1ab_0
   - comm=0.1.4=pyhd8ed1ab_0
@@ -40,6 +44,7 @@ dependencies:
   - cuda-runtime=12.1.0=0
   - cycler=0.11.0=pyhd3eb1b0_0
   - cyrus-sasl=2.1.28=h52b45da_1
+  - dataclasses=0.8=pyhc8e2a94_3
   - dbus=1.13.18=hb2f20db_0
   - debugpy=1.6.7=py311h6a678d5_0
   - decorator=5.1.1=pyhd8ed1ab_0
@@ -156,6 +161,7 @@ dependencies:
   - notebook-shim=0.2.3=pyhd8ed1ab_0
   - nspr=4.35=h6a678d5_0
   - nss=3.89.1=h6a678d5_0
+  - numexpr=2.8.7=py311h65dcdc2_0
   - numpy=1.25.2=py311h08b1b3b_0
   - numpy-base=1.25.2=py311hf175353_0
   - openh264=2.1.1=h4ff587b_0
@@ -163,6 +169,7 @@ dependencies:
   - openssl=3.0.12=h7f8727e_0
   - overrides=7.4.0=pyhd8ed1ab_0
   - packaging=23.2=pyhd8ed1ab_0
+  - pandas=2.1.1=py311ha02d727_0
   - pandocfilters=1.5.0=pyhd8ed1ab_0
   - parso=0.8.3=pyhd8ed1ab_0
   - pcre=8.45=h295c915_0
@@ -190,6 +197,7 @@ dependencies:
   - python-dateutil=2.8.2=pyhd8ed1ab_0
   - python-fastjsonschema=2.18.1=pyhd8ed1ab_0
   - python-json-logger=2.0.7=pyhd8ed1ab_0
+  - python-tzdata=2023.3=pyhd8ed1ab_0
   - python_abi=3.11=2_cp311
   - pytorch=2.1.0=py3.11_cuda12.1_cudnn8.9.2_0
   - pytorch-cuda=12.1=ha16c6d3_5
