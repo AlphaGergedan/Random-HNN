@@ -1,5 +1,3 @@
-PINNs
-swimnetworks-paper
 **/*.ipynb_checkpoints/
 .ipynb_checkpoints
 *pycache*
