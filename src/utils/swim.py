@@ -299,7 +299,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     val_mse_loss = MSE(domain_params["H"](x_val), model.transform(x_val))
     val_l2_error_relative = l2_error_relative(domain_params["H"](x_val), model.transform(x_val))
 
-    val_name_tokens = [domain_params["system_name"], "V_q" + str(domain_params["V_q"]), "V_p" + str(domain_params["V_p"]), "q_val_lim" + str(domain_params["q_val_lim"]), "p_val_lim" + str(domain_params["p_val_lim"])]
+    val_name_tokens = [domain_params["system_name"], "V_q" + str(domain_params["V_q"]), "V_p" + str(domain_params["V_p"]), "q_val_lim" + str(domain_params["q_val_lim"]), "p_val_lim" + str(domain_params["p_val_lim"]) + "noise" + str(domain_params["noise"])]
 
     if verbose:
         print("VAL RESULTS")
@@ -315,7 +315,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
         aspect = 2.5
 
     if save:
-        file_location = "../../plots/" + "_".join(val_name_tokens) + "_" + "_".join(model_name_tokens) + "_train_l2_rel_loss" + "{:.6f}".format(train_l2_error_relative) + "_val_l2_rel_loss" + "{:.6f}".format(val_l2_error_relative) + ".pdf"
+        file_location = "../../plots/" + "_".join(val_name_tokens) + "_" + "_".join(model_name_tokens) + "_train_l2_" + "{:.6f}".format(train_l2_error_relative) + "_val_l2_" + "{:.6f}".format(val_l2_error_relative) + ".pdf"
     else:
         file_location = '' # which defaults to not saving the plot
 
@@ -335,7 +335,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     test_mse_loss = MSE(domain_params["H"](x_test), model.transform(x_test))
     test_l2_error_relative = l2_error_relative(domain_params["H"](x_test), model.transform(x_test))
 
-    test_name_tokens = [domain_params["system_name"], "N_q" + str(domain_params["N_q"]), "N_p" + str(domain_params["N_p"]), "q_test_lim" + str(domain_params["q_test_lim"]), "p_test_lim" + str(domain_params["p_test_lim"])]
+    test_name_tokens = [domain_params["system_name"], "N_q" + str(domain_params["N_q"]), "N_p" + str(domain_params["N_p"]), "q_test_lim" + str(domain_params["q_test_lim"]), "p_test_lim" + str(domain_params["p_test_lim"]) + "noise" + str(domain_params["noise"])]
 
     if verbose:
         print("TEST RESULTS")
@@ -351,7 +351,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
         aspect = 2.5
 
     if save:
-        file_location = "../../plots/" + "_".join(test_name_tokens) + "_" + "_".join(model_name_tokens) + "_test_l2_rel_loss_" + "{:.6f}".format(test_l2_error_relative) + ".pdf"
+        file_location = "../../plots/" + "_".join(test_name_tokens) + "_" + "_".join(model_name_tokens) + "_test_l2_" + "{:.6f}".format(test_l2_error_relative) + ".pdf"
     else:
         file_location = '' # which defaults to not saving the plot
 
