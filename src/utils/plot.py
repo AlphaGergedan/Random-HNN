@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 
-def draw_1d(x, y, label='f(x)',
+def plot_1d(x, y, label='f(x)',
             xpredict=None, ypredict=None, labelpredict='Approximation',
             xlim=None, ylim=None,
             xlabel='x', ylabel='y', title=None, verbose=True, save=''):
@@ -35,7 +35,7 @@ def draw_1d(x, y, label='f(x)',
     else:
         plt.close()
 
-def draw_2d(grid,
+def plot_2d(grid,
             xrange, yrange,
             vmin=None, vmax=None,
             extent=None, contourlines=10,
@@ -59,7 +59,7 @@ def draw_2d(grid,
     else:
         plt.close()
 
-def draw_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
+def plot_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
     """
     # xrange, yrange,
             # vmin=None, vmax=None,
@@ -72,7 +72,7 @@ def draw_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
 
     fixed_dimensions: specifies what to fix, must include two entries only for a 2d plot
 
-    Uses draw_2d but with selected features specified in the grid range
+    Uses plot_2d but with selected features specified in the grid range
     """
     assert len(grid.shape) == 4
     assert len(fixed_dimensions.keys()) == 2
@@ -83,8 +83,8 @@ def draw_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
     # # poincare grid
     # plot_grid = grid[]
     # plot_data_1 = y_grid[:, N_q1//2, N_p1//2, :].reshape((N_p2, N_q2))
-    # draw_2d(plot_data_1, q2_range, p2_range, extent=[q2_lim[0],q2_lim[1],p2_lim[0],p2_lim[1]], showcontour=True, xlabel='q2', ylabel='p2', aspect=1.5, title="H(x)" + "\n" + "with q1,p1 near 0")
+    # plot_2d(plot_data_1, q2_range, p2_range, extent=[q2_lim[0],q2_lim[1],p2_lim[0],p2_lim[1]], showcontour=True, xlabel='q2', ylabel='p2', aspect=1.5, title="H(x)" + "\n" + "with q1,p1 near 0")
 
 
-def draw_6d():
+def plot_6d():
     pass
