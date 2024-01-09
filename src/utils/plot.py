@@ -88,3 +88,17 @@ def plot_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
 
 def plot_6d():
     pass
+
+# for 2d poincare maps
+def plot_poincare(grid, xrange, yrange, extent, contourlines, xlabel, ylabel, aspect, title, fixed_dims={"q1": 0, "q2":0}, save=False, verbose=True):
+    """
+    Plots 2d poincare map
+    """
+    fixed_dims_names = list(fixed_dims.keys())
+    fixed_dims_values = list(fixed_dims.values())
+    title = title + "\n" + "with " + fixed_dims_names[0] + "=" + str(fixed_dims_values[0]) + "," + fixed_dims_names[1] + "=" + str(fixed_dims_values[1])
+    if save:
+        save = "./plots/" + title.replace("\n", "_").replace("=", "_").replace(",", "_").replace(" ", "_") + ".pdf"
+    else:
+        save = ""
+    plot_2d(grid, xrange, yrange, extent=extent, contourlines=contourlines, xlabel=xlabel, ylabel=ylabel, aspect=aspect, title=title, save=save, verbose=verbose)

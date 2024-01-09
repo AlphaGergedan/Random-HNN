@@ -17,7 +17,7 @@ from activations import relu, tanh, sigmoid, elu, identity
 from utils.plot import plot_2d
 from utils.mse import MSE
 from utils.l2_error_relative import l2_error_relative
-from utils.grid import generate_grid_2d
+from utils.grid import generate_grid_2d, generate_grid_4d
 
 
 def parse_activation(activation):
@@ -365,3 +365,189 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     del q_test_range, p_test_range, q_test_grid, p_test_grid, x_test, y_plot
 
     return (train_l2_error_relative), (val_l2_error_relative), (test_l2_error_relative)
+
+
+# def experiment_4d_hamiltonian_system(domain_params, model_params, verbose=False, save=False):
+    # """
+    # Evaluates the given model in the given 2d domain
+#
+    # @param domain_params:   {
+                                # "system_name": name of the system, e.g. "double_pendulum"
+                                # "H": hamiltonian function of the system
+                                # "dH": derivative of H w.r.t. q and p
+                                # "N_q1", "N_q2", "N_p1", "N_p2", "q1_test_lim", "q2_test_lim", "p1_test_lim", "p2_test_lim": test data parameters
+                                # "V_q1", "V_q2", "V_p1", "V_p2", "q1_val_lim", "q2_val_lim", "p1_val_lim", "p2_val_lim": val validation data parameters
+                                # "K_q1", "K_q2", "K_p1", "K_p2", "q1_train_lim", "q2_train_lim", "p1_train_lim", "p2_train_lim": training data parameters
+                                # "random_seed": seed for reproducibility
+                                # "noise": noise level in the data
+                            # }
+    # @param model_params:    {
+                                # "name": discriminative name for the model
+                                # "M": hidden nodes
+                                # "activation": activation function, should be string e.g. "relu", "tanh", "sigmoid"
+                                # "parameter_sampler": weight sampling strategy
+                                # "sample_uniformly": whether to use uniform distribution for data point picking when sampling the weights
+                                                    # this must be set to True for ELM and U-SWIM; and False for A-SWIM
+                                # "rcond": regularization in lstsq in the linear layer
+                                # "random_seed": for reproducability
+                                # "include_bias": whether to include bias in linear layer
+                                # "clip": whether to clip to min/max values when plotting
+                            # }
+    # @param poincare_params: {[
+                                #
+                             #
+                            #
+                            # ]}
+    # @param verbose: whether to plot the validation and test approximations
+    # @param save: whether to save the plots
+#
+    # @returns train_losses, val_losses, test_losses
+    # """
+    # # if model name is H, then we plot the ground truth for validation and test
+    # if model_params["name"] == "H":
+        # N = domain_params["N_q1"] * domain_params["N_q2"] * domain_params["N_p1"] * domain_params["N_p2"]
+        # V = domain_params["V_q1"] * domain_params["V_q2"] * domain_params["V_p1"] * domain_params["V_p2"]
+        # # validate with a broader data in the same range as the training data
+        # q1_val_range, q2_val_range, p1_val_range, p2_val_range, q1_val_grid, q2_val_grid, p1_val_grid, p2_val_grid = generate_grid_4d(
+            # domain_params["V_q1"], domain_params["V_q2"], domain_params["V_p1"], domain_params["V_p2"],
+            # domain_params["q1_val_lim"], domain_params["q2_val_lim"], domain_params["p1_val_lim"], domain_params["p2_val_lim"]
+        # )
+        # x_val = np.column_stack([q1_val_grid.flatten(), q2_val_grid.flatten(), p1_val_grid.flatten(), p2_val_grid.flatten()])
+        # val_name_tokens = [domain_params["system_name"], "V_q" + str(domain_params["V_q"]), "V_p" + str(domain_params["V_p"]), "q_val_lim" + str(domain_params["q_val_lim"]), "p_val_lim" + str(domain_params["p_val_lim"])]
+        # # q diff / p diff
+        # q_diff = domain_params["q_val_lim"][1] - domain_params["q_val_lim"][0]
+        # p_diff = domain_params["p_val_lim"][1] - domain_params["p_val_lim"][0]
+        # if q_diff == p_diff:
+            # aspect = 1
+        # else:
+            # aspect = 2.5
+        # if save:
+            # file_location = "../../plots/" + "_".join(val_name_tokens) + "GROUND_TRUTH" + ".pdf"
+        # else:
+            # file_location = '' # which defaults to not saving the plot
+        # plot_2d(domain_params["H"](x_val).reshape((domain_params["V_p"],domain_params["V_q"])), q_val_range, p_val_range, extent=domain_params["q_val_lim"] + domain_params["p_val_lim"], contourlines=20, xlabel='q', ylabel='p', aspect=aspect, title="Ground Truth", verbose=verbose, save=file_location)
+        # del q_val_range, p_val_range, q_val_grid, p_val_grid, x_val
+#
+#
+        # # test with a broader range as the train and val data
+        # q_test_range, p_test_range, q_test_grid, p_test_grid = generate_grid_2d(domain_params["N_q"], domain_params["N_p"], domain_params["q_test_lim"], domain_params["p_test_lim"])
+        # x_test = np.column_stack([q_test_grid.flatten(), p_test_grid.flatten()])
+        # test_name_tokens = [domain_params["system_name"], "N_q" + str(domain_params["N_q"]), "N_p" + str(domain_params["N_p"]), "q_test_lim" + str(domain_params["q_test_lim"]), "p_test_lim" + str(domain_params["p_test_lim"])]
+        # # q diff / p diff
+        # q_diff = domain_params["q_test_lim"][1] - domain_params["q_test_lim"][0]
+        # p_diff = domain_params["p_test_lim"][1] - domain_params["p_test_lim"][0]
+        # if q_diff == p_diff:
+            # aspect = 1
+        # else:
+            # aspect = 2.5
+        # if save:
+            # file_location = "../../plots/" + "_".join(test_name_tokens) + "GROUND_TRUTH" + ".pdf"
+        # else:
+            # file_location = '' # which defaults to not saving the plot
+#
+        # plot_2d(domain_params["H"](x_test).reshape((domain_params["N_p"],domain_params["N_q"])), q_test_range, p_test_range, extent=domain_params["q_test_lim"] + domain_params["p_test_lim"], contourlines=20, xlabel='q', ylabel='p', aspect=aspect, title="Ground Truth", verbose=verbose, save=file_location)
+        # del q_test_range, p_test_range, q_test_grid, p_test_grid, x_test
+        # return 0,0,0
+#
+#
+    # # calculate domain sizes
+    # N = domain_params["N_q"] * domain_params["N_p"]
+    # V = domain_params["V_q"] * domain_params["V_p"]
+    # K = domain_params["K_q"] * domain_params["K_p"]
+#
+    # # first we train the model with the train data (X, dX, x0, f0)
+    # q_train_range, p_train_range, q_train_grid, p_train_grid = generate_grid_2d(domain_params["K_q"], domain_params["K_p"], domain_params["q_train_lim"], domain_params["p_train_lim"])
+    # x_train = np.column_stack([q_train_grid.flatten(), p_train_grid.flatten()])
+    # y_train_derivs = domain_params["dH"](x_train)
+    # x0 = np.array([0,0])
+    # f0 = domain_params["H"](x0.reshape(-1,2))
+#
+    # model = approximate_hamiltonian(x_train, y_train_derivs, x0, f0, model_params["M"], model_params["activation"], model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"], model_params["random_seed"], model_params["include_bias"])
+    # model_name_tokens = [ k + str(v) for k, v in model_params.items()]
+#
+    # train_mse_loss = MSE(domain_params["H"](x_train), model.transform(x_train))
+    # train_l2_error_relative = l2_error_relative(domain_params["H"](x_train), model.transform(x_train))
+#
+    # train_name_tokens = [domain_params["system_name"], "K_q" + str(domain_params["K_q"]), "K_p" + str(domain_params["K_p"]), "q_train_lim" + str(domain_params["q_train_lim"]), "p_train_lim" + str(domain_params["p_train_lim"]) + "noise" + str(domain_params["noise"])]
+#
+    # if verbose:
+        # print("TRAIN RESULTS")
+        # print("-> train mse loss on domain:", " ".join(train_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(train_mse_loss))
+        # print("-> train l2 relative error on domain:", " ".join(train_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(train_l2_error_relative))
+        # print()
+#
+    # del q_train_range, p_train_range, q_train_grid, p_train_grid, x_train, y_train_derivs, x0, f0
+#
+    # # validate with a broader data in the same range as the training data
+    # q_val_range, p_val_range, q_val_grid, p_val_grid = generate_grid_2d(domain_params["V_q"], domain_params["V_p"], domain_params["q_val_lim"], domain_params["p_val_lim"])
+    # x_val = np.column_stack([q_val_grid.flatten(), p_val_grid.flatten()])
+#
+    # val_mse_loss = MSE(domain_params["H"](x_val), model.transform(x_val))
+    # val_l2_error_relative = l2_error_relative(domain_params["H"](x_val), model.transform(x_val))
+#
+    # val_name_tokens = [domain_params["system_name"], "V_q" + str(domain_params["V_q"]), "V_p" + str(domain_params["V_p"]), "q_val_lim" + str(domain_params["q_val_lim"]), "p_val_lim" + str(domain_params["p_val_lim"]) + "noise" + str(domain_params["noise"])]
+#
+    # if verbose:
+        # print("VAL RESULTS")
+        # print("-> val mse loss on domain:", " ".join(val_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(val_mse_loss))
+        # print("-> val l2 relative error on domain:", " ".join(val_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(val_l2_error_relative))
+#
+    # # q diff / p diff
+    # q_diff = domain_params["q_val_lim"][1] - domain_params["q_val_lim"][0]
+    # p_diff = domain_params["p_val_lim"][1] - domain_params["p_val_lim"][0]
+    # if q_diff == p_diff:
+        # aspect = 1
+    # else:
+        # aspect = 2.5
+#
+    # if save:
+        # file_location = "../../plots/" + "_".join(val_name_tokens) + "_" + "_".join(model_name_tokens) + "_train_l2_" + "{:.6f}".format(train_l2_error_relative) + "_val_l2_" + "{:.6f}".format(val_l2_error_relative) + ".pdf"
+    # else:
+        # file_location = '' # which defaults to not saving the plot
+#
+    # if model_params["clip"]:
+        # y_plot = model.transform(x_val).reshape((domain_params["V_p"],domain_params["V_q"])).clip(np.min(domain_params["H"](x_val)), np.max(domain_params["H"](x_val)))
+    # else:
+        # y_plot = model.transform(x_val).reshape((domain_params["V_p"],domain_params["V_q"]))
+#
+    # plot_2d(y_plot, q_val_range, p_val_range, extent=domain_params["q_val_lim"] + domain_params["p_val_lim"], contourlines=20, xlabel='q', ylabel='p', aspect=aspect, title=" ".join(model_name_tokens), verbose=verbose, save=file_location)
+#
+    # del q_val_range, p_val_range, q_val_grid, p_val_grid, x_val, y_plot
+#
+    # # test with a broader range as the train and val data
+    # q_test_range, p_test_range, q_test_grid, p_test_grid = generate_grid_2d(domain_params["N_q"], domain_params["N_p"], domain_params["q_test_lim"], domain_params["p_test_lim"])
+    # x_test = np.column_stack([q_test_grid.flatten(), p_test_grid.flatten()])
+#
+    # test_mse_loss = MSE(domain_params["H"](x_test), model.transform(x_test))
+    # test_l2_error_relative = l2_error_relative(domain_params["H"](x_test), model.transform(x_test))
+#
+    # test_name_tokens = [domain_params["system_name"], "N_q" + str(domain_params["N_q"]), "N_p" + str(domain_params["N_p"]), "q_test_lim" + str(domain_params["q_test_lim"]), "p_test_lim" + str(domain_params["p_test_lim"]) + "noise" + str(domain_params["noise"])]
+#
+    # if verbose:
+        # print("TEST RESULTS")
+        # print("-> test mse loss on domain:", " ".join(test_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(test_mse_loss))
+        # print("-> test l2 relative error on domain:", " ".join(test_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(test_l2_error_relative))
+#
+    # # q diff / p diff
+    # q_diff = domain_params["q_test_lim"][1] - domain_params["q_test_lim"][0]
+    # p_diff = domain_params["p_test_lim"][1] - domain_params["p_test_lim"][0]
+    # if q_diff == p_diff:
+        # aspect = 1
+    # else:
+        # aspect = 2.5
+#
+    # if save:
+        # file_location = "../../plots/" + "_".join(test_name_tokens) + "_" + "_".join(model_name_tokens) + "_test_l2_" + "{:.6f}".format(test_l2_error_relative) + ".pdf"
+    # else:
+        # file_location = '' # which defaults to not saving the plot
+#
+    # if model_params["clip"]:
+        # y_plot = model.transform(x_test).reshape((domain_params["N_p"],domain_params["N_q"])).clip(np.min(domain_params["H"](x_test)), np.max(domain_params["H"](x_test)))
+    # else:
+        # y_plot = model.transform(x_test).reshape((domain_params["N_p"],domain_params["N_q"]))
+#
+    # plot_2d(y_plot, q_test_range, p_test_range, extent=domain_params["q_test_lim"] + domain_params["p_test_lim"], contourlines=20, xlabel='q', ylabel='p', aspect=aspect, title=" ".join(model_name_tokens), verbose=verbose, save=file_location)
+#
+    # del q_test_range, p_test_range, q_test_grid, p_test_grid, x_test, y_plot
+#
+    # return (train_l2_error_relative), (val_l2_error_relative), (test_l2_error_relative)
