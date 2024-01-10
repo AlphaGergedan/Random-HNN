@@ -14,8 +14,8 @@ def generate_grid_2d(N_q, N_p, q_lim, p_lim):
     """
     assert type(q_lim) == list and type(p_lim) == list
     assert len(q_lim) == 2 and len(p_lim) == 2
-    assert q_lim[0] < q_lim[1], "q_lim should be in ascending order"
-    assert p_lim[0] < p_lim[1], "p_lim should be in ascending order"
+    assert q_lim[0] <= q_lim[1], "q_lim should be in ascending order"
+    assert p_lim[0] <= p_lim[1], "p_lim should be in ascending order"
 
     q_range, p_range = np.linspace(q_lim[0], q_lim[1], N_q), np.linspace(p_lim[0], p_lim[1], N_p)
     q_grid, p_grid = np.meshgrid(q_range, p_range)
@@ -40,10 +40,10 @@ def generate_grid_4d(N_q1, N_q2, N_p1, N_p2, q1_lim, q2_lim, p1_lim, p2_lim):
     """
     assert type(q1_lim) == list and type(q2_lim) == list and type(p1_lim) == list and type(p2_lim) == list
     assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2
-    assert q1_lim[0] < q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] < q2_lim[1], "q2_lim should be in ascending order"
-    assert p1_lim[0] < p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] < p2_lim[1], "p2_lim should be in ascending order"
+    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
+    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
+    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
+    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
 
     q1_range, q2_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2)
     p1_range, p2_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2)
@@ -73,12 +73,12 @@ def generate_grid_6d(N_q1, N_q2, N_q3, N_p1, N_p2, N_p3, q1_lim, q2_lim, q3_lim,
     """
     assert type(q1_lim) == list and type(q2_lim) == list and type(q3_lim) == list and type(p1_lim) == list and type(p2_lim) == list and type(p3_lim) == list
     assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(q3_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2 and len(p3_lim) == 2
-    assert q1_lim[0] < q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] < q2_lim[1], "q2_lim should be in ascending order"
-    assert q3_lim[0] < q3_lim[1], "q3_lim should be in ascending order"
-    assert p1_lim[0] < p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] < p2_lim[1], "p2_lim should be in ascending order"
-    assert p3_lim[0] < p3_lim[1], "p3_lim should be in ascending order"
+    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
+    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
+    assert q3_lim[0] <= q3_lim[1], "q3_lim should be in ascending order"
+    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
+    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
+    assert p3_lim[0] <= p3_lim[1], "p3_lim should be in ascending order"
 
     q1_range, q2_range, q3_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2), np.linspace(q3_lim[0], q3_lim[1], N_q3)
     p1_range, p2_range, p3_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2), np.linspace(p3_lim[0], p3_lim[1], N_p3)
@@ -112,14 +112,14 @@ def generate_grid_8d(N_q1, N_q2, N_q3, N_q4, N_p1, N_p2, N_p3, N_p4, q1_lim, q2_
     """
     assert type(q1_lim) == list and type(q2_lim) == list and type(q3_lim) == list and type(q4_lim) == list and type(p1_lim) == list and type(p2_lim) == list and type(p3_lim) == list and type(p4_lim) == list
     assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(q3_lim) == 2 and len(q4_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2 and len(p3_lim) == 2 and len(p4_lim) == 2
-    assert q1_lim[0] < q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] < q2_lim[1], "q2_lim should be in ascending order"
-    assert q3_lim[0] < q3_lim[1], "q3_lim should be in ascending order"
-    assert q4_lim[0] < q4_lim[1], "q4_lim should be in ascending order"
-    assert p1_lim[0] < p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] < p2_lim[1], "p2_lim should be in ascending order"
-    assert p3_lim[0] < p3_lim[1], "p3_lim should be in ascending order"
-    assert p4_lim[0] < p4_lim[1], "p4_lim should be in ascending order"
+    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
+    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
+    assert q3_lim[0] <= q3_lim[1], "q3_lim should be in ascending order"
+    assert q4_lim[0] <= q4_lim[1], "q4_lim should be in ascending order"
+    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
+    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
+    assert p3_lim[0] <= p3_lim[1], "p3_lim should be in ascending order"
+    assert p4_lim[0] <= p4_lim[1], "p4_lim should be in ascending order"
 
     q1_range, q2_range, q3_range, q4_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2), np.linspace(q3_lim[0], q3_lim[1], N_q3), np.linspace(q4_lim[0], q4_lim[1], N_q4)
     p1_range, p2_range, p3_range, p4_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2), np.linspace(p3_lim[0], p3_lim[1], N_p3), np.linspace(p4_lim[0], p4_lim[1], N_p4)
