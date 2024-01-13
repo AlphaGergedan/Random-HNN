@@ -1,5 +1,34 @@
 import numpy as np
 
+def generate_grid(N_qs, N_ps, q_lims, p_lims, dof):
+    """
+    Generates meshgrid for Hamiltonian systems with positions q and momenta p
+
+    @param N_qs: number of grid points in q in each dimension as a list
+    @param N_ps: number of grid points in p in each dimension as a list
+    @param q_lims: list of [q_min, q_max] in each dimension
+    @param p_lims: list of [p_min, p_max] in each dimension
+    @param dof: degree of freedom of the system
+
+    @return q_ranges, p_ranges, q_grids, p_grids
+    """
+    params = [N_qs, N_ps, q_lims, p_lims]
+    for param in params:
+        assert len(param) == dof
+
+    q_ranges = []
+    p_ranges = []
+
+    for d in range(dof):
+        q_ranges.append(np.linspace(q_lims[d][0], q_lims[d][1], N_qs[d]))
+        p_ranges.append(np.linspace(p_lims[d][0], p_lims[d][1], N_ps[d]))
+
+    grids = np.meshgrid(*(q_ranges + p_ranges))
+
+    # returns q_grids, p_grids
+    return q_ranges, p_ranges, grids[:dof], grids[dof:]
+
+
 def generate_grid_2d(N_q, N_p, q_lim, p_lim):
     """
     Generates meshgrid for the 2D system with position q and momentum p
@@ -20,7 +49,7 @@ def generate_grid_2d(N_q, N_p, q_lim, p_lim):
     q_range, p_range = np.linspace(q_lim[0], q_lim[1], N_q), np.linspace(p_lim[0], p_lim[1], N_p)
     q_grid, p_grid = np.meshgrid(q_range, p_range)
 
-    return q_range, p_range, q_grid, p_grid
+    return [q_range, p_range], [q_grid, p_grid]
 
 def generate_grid_4d(N_q1, N_q2, N_p1, N_p2, q1_lim, q2_lim, p1_lim, p2_lim):
     """

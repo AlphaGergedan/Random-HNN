@@ -4,7 +4,7 @@
 import os
 import sys
 import numpy as np
-# TODO: from time import time
+from time import time
 from sklearn.pipeline import Pipeline
 
 # local modules
@@ -17,7 +17,94 @@ from activations import relu, tanh, sigmoid, elu, identity
 from utils.plot import plot_2d
 from utils.mse import MSE
 from utils.l2_error_relative import l2_error_relative
-from utils.grid import generate_grid_2d, generate_grid_4d
+from utils.grid import generate_grid
+
+
+def model_layer_params(model):
+    return [ step[1].n_parameters for step in model.steps ]
+
+
+def validate(model, domain_params, model_params, verbose=False):
+    # prepare the validation data
+    *_, q_val_grids, p_val_grids = generate_grid(domain_params["V_qs"], domain_params["V_ps"], domain_params["q_val_lims"], domain_params["p_val_lims"], domain_params["dof"])
+    x_val = np.column_stack([ q_val_grid.flatten() for q_val_grid in q_val_grids ] + [ p_val_grid.flatten() for p_val_grid in p_val_grids ])
+    del q_val_grids, p_val_grids
+
+    t_start = time()
+    y_val = domain_params["H"](x_val)
+    t_end = time()
+    print("evaluating H(x_val) took:", t_end - t_start, "seconds")
+
+    t_start = time()
+    y_val_hat = model.transform(x_val)
+    t_end = time()
+    print("evaluating H_hat(x_val) took:", t_end - t_start, "seconds")
+
+    val_mse_loss = MSE(y_val, y_val_hat)
+    val_l2_error_relative = l2_error_relative(y_val, y_val_hat)
+
+    val_name_tokens = [domain_params["system_name"], "V_q1" + str(domain_params["V_qs"][0]), "V_p1" + str(domain_params["V_ps"][0]), "q1_v_lim" + str(domain_params["q_val_lims"][0]), "p1_v_lim" + str(domain_params["p_val_lims"][0]) + "noise" + str(domain_params["noise"])]
+
+    del x_val
+
+    if verbose:
+        model_name_tokens = [ k + str(v) for k, v in model_params.items() ]
+        print("VAL RESULTS")
+        print("-> val mse loss on domain:", " ".join(val_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(val_mse_loss))
+        print("-> val l2 relative error on domain:", " ".join(val_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(val_l2_error_relative))
+
+    return val_mse_loss, val_l2_error_relative
+
+
+def fit(domain_params, model_params, verbose=False, save=False):
+    """
+    @param domain_params: {
+                            "dof": degree of freedom of the system, must be in [1,2,3,4],
+                            "K_qs": number of grid points for q in each dimension as a list used in fitting,
+                            "K_ps": number of grid points for p in each dimension as a list used in fitting,
+                            "q_train_lims": list of [q_train_min, q_train_max] in each dimension
+                            "p_train_lims": list of [p_train_min, p_train_max] in each dimension
+                          }
+    """
+    # prepare the train data (X, dX, x0, f0) of dimension ( (sum(K_qs), 2*dof), (sum(K_qs), 2*dof), (1,2*dof), (1) )
+    *_, q_train_grids, p_train_grids = generate_grid(domain_params["K_qs"], domain_params["K_ps"], domain_params["q_train_lims"], domain_params["p_train_lims"], domain_params["dof"])
+    x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
+    del q_train_grids, p_train_grids
+
+    y_train_derivs = domain_params["dH"](x_train)
+    x0 = np.array(np.zeros(2*domain_params["dof"]))
+    f0 = domain_params["H"](x0.reshape(-1,2*domain_params["dof"]))
+
+    t_start = time()
+    model = approximate_hamiltonian(x_train, y_train_derivs, x0, f0, model_params["M"], model_params["activation"], model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"], model_params["random_seed"], model_params["include_bias"])
+    t_end = time()
+
+    del y_train_derivs, x0, f0
+
+    model_name_tokens = [ k + str(v) for k, v in model_params.items() ]
+
+    train_mse_loss = MSE(domain_params["H"](x_train), model.transform(x_train))
+    train_l2_error_relative = l2_error_relative(domain_params["H"](x_train), model.transform(x_train))
+    del x_train
+
+    train_name_tokens = [domain_params["system_name"], "K_q1" + str(domain_params["K_qs"][0]), "K_p1" + str(domain_params["K_ps"][0]), "q1_t_lim" + str(domain_params["q_train_lims"][0]), "p1_t_lim" + str(domain_params["p_train_lims"][0]) + "noise" + str(domain_params["noise"])]
+
+    model_params = model_layer_params(model)
+
+    if verbose:
+        print("TRAIN RESULTS")
+        print("-> train mse loss on domain:", " ".join(train_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(train_mse_loss))
+        print("-> train l2 relative error on domain:", " ".join(train_name_tokens) + ", with model:", " ".join(model_name_tokens) + "\n" + str(train_l2_error_relative))
+        print("took", t_end - t_start, "seconds to fit")
+        print("model size in bytes", sys.getsizeof(model))
+        print("number of params in layers:", str(model_params), "in total is", sum(model_params))
+        print()
+
+    if save:
+        # TODO save the model in /models
+        pass
+
+    return model, train_mse_loss, train_l2_error_relative, t_end-t_start, model_name_tokens
 
 
 def parse_activation(activation):
@@ -107,10 +194,14 @@ def approximate_hamiltonian(
     # TODO: assert (K,D) == x_test_values
 
     # build the pipeline for having dense + linear layer set up, in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
+    t_start = time()
     model_ansatz = Pipeline([
         ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=True, random_seed=random_seed)),
         ("linear", Linear(regularization_scale=rcond))
     ])
+    t_end = time()
+
+    print("--> pipeline built with dense + linear layers in:", t_end - t_start, "seconds")
 
     # get dense and linear layer
     hidden_layer = model_ansatz.steps[0][1]
@@ -118,13 +209,20 @@ def approximate_hamiltonian(
 
     # model_ansatz.fit(x_train, np.ones((K, 1))) # output has one feature dimension
     # use SWIM algorithm with uniform data point picking probability to sample the hidden layer weights
+    t_start = time()
     model_ansatz.fit(x_train)
+    t_end = time()
+    print("--> hidden layer weights+biases sampled using random sampling of the data points in:", t_end - t_start, "seconds")
 
     # calculate dense layer derivative w.r.t. x => of shape (KD,M)
+    t_start = time()
     hidden_layer.activation = df_activation
     d_activation_wrt_x = hidden_layer.transform(x_train) # (K,M)
     # the following stacks the derivatives in the matrix A for the linear system
     phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
+    t_end = time()
+    print("--> derivatives w.r.t. inputs are taken in:", t_end - t_start, "seconds")
+
 
     # evaluate at x0
     hidden_layer.activation = f_activation
@@ -132,7 +230,10 @@ def approximate_hamiltonian(
     phi_1_of_x0 = hidden_layer.transform(x0)
 
     # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
+    t_start = time()
     c = approximate_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs, f0, rcond=rcond, bias=include_bias).reshape(-1,1)
+    t_end = time()
+    print("--> linear layer approximated by solving linear system in:", t_end - t_start, "seconds")
 
     if include_bias:
         linear_layer.weights = c[:-1]
@@ -150,21 +251,28 @@ def approximate_hamiltonian(
         return model_ansatz
 
     # approximate the Hamiltonian values (target function values) which we need in other sampling methods
+    t_start = time()
     y_train_hat = model_ansatz.transform(x_train)
+    t_end = time()
+    print("y_train_hat calculated using first pipeline in:", t_end - t_start, "seconds")
 
     # build the pipeline for having dense + linear layer set up, this is the second approximation with weight probabilities, so sample_uniformly is set to False
     model_ansatz = Pipeline([
         ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
         ("linear", Linear(regularization_scale=rcond))
     ])
+    print("*--> second pipeline built with dense + linear layers in:", t_end - t_start, "seconds")
 
     # get dense and linear layer
     hidden_layer = model_ansatz.steps[0][1]
     linear_layer = model_ansatz.steps[1][1]
 
+    t_start = time()
     # set up the linear system to solve the outer coefficients
     # use weight probabilities with the distances of the predicted function values
     model_ansatz.fit(x_train, y_train_hat)
+    t_end = time()
+    print("*--> hidden layer weights+biases sampled using weight probabiliities using the approximated y_train_hat of the data points in:", t_end - t_start, "seconds")
 
     # calculate dense layer derivative w.r.t. x => of shape (KD,M)
     hidden_layer.activation = df_activation
@@ -173,12 +281,18 @@ def approximate_hamiltonian(
     phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
 
     # evaluate at x0
+    t_start = time()
     hidden_layer.activation = f_activation
     x0 = x0.reshape(1, D)
     phi_1_of_x0 = hidden_layer.transform(x0)
+    t_end = time()
+    print("*--> derivatives w.r.t. inputs are taken in:", t_end - t_start, "seconds")
 
     # STEP 1: approximate the target function with uniform sampling of the weights
+    t_start = time()
     c = approximate_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs, f0, rcond=rcond, bias=include_bias).reshape(-1,1)
+    t_end = time()
+    print("*--> linear layer approximated by solving linear system in:", t_end - t_start, "seconds")
 
     if include_bias:
         linear_layer.weights = c[:-1]
@@ -225,7 +339,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
         N = domain_params["N_q"] * domain_params["N_p"]
         V = domain_params["V_q"] * domain_params["V_p"]
         # validate with a broader data in the same range as the training data
-        q_val_range, p_val_range, q_val_grid, p_val_grid = generate_grid_2d(domain_params["V_q"], domain_params["V_p"], domain_params["q_val_lim"], domain_params["p_val_lim"])
+        [q_val_range], [p_val_range], [q_val_grid], [p_val_grid] = generate_grid([domain_params["V_q"]], [domain_params["V_p"]], [domain_params["q_val_lim"]], [domain_params["p_val_lim"]], 1)
         x_val = np.column_stack([q_val_grid.flatten(), p_val_grid.flatten()])
         val_name_tokens = [domain_params["system_name"], "V_q" + str(domain_params["V_q"]), "V_p" + str(domain_params["V_p"]), "q_val_lim" + str(domain_params["q_val_lim"]), "p_val_lim" + str(domain_params["p_val_lim"])]
         # q diff / p diff
@@ -244,7 +358,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
 
 
         # test with a broader range as the train and val data
-        q_test_range, p_test_range, q_test_grid, p_test_grid = generate_grid_2d(domain_params["N_q"], domain_params["N_p"], domain_params["q_test_lim"], domain_params["p_test_lim"])
+        [q_test_range], [p_test_range], [q_test_grid], [p_test_grid] = generate_grid([domain_params["N_q"]], [domain_params["N_p"]], [domain_params["q_test_lim"]], [domain_params["p_test_lim"]], 1)
         x_test = np.column_stack([q_test_grid.flatten(), p_test_grid.flatten()])
         test_name_tokens = [domain_params["system_name"], "N_q" + str(domain_params["N_q"]), "N_p" + str(domain_params["N_p"]), "q_test_lim" + str(domain_params["q_test_lim"]), "p_test_lim" + str(domain_params["p_test_lim"])]
         # q diff / p diff
@@ -261,7 +375,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
 
         plot_2d(domain_params["H"](x_test).reshape((domain_params["N_p"],domain_params["N_q"])), q_test_range, p_test_range, extent=domain_params["q_test_lim"] + domain_params["p_test_lim"], contourlines=20, xlabel='q', ylabel='p', aspect=aspect, title="Ground Truth", verbose=verbose, save=file_location)
         del q_test_range, p_test_range, q_test_grid, p_test_grid, x_test
-        return 0,0,0
+        return 0,0,0,0
 
 
     # calculate domain sizes
@@ -270,13 +384,16 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     K = domain_params["K_q"] * domain_params["K_p"]
 
     # first we train the model with the train data (X, dX, x0, f0)
-    q_train_range, p_train_range, q_train_grid, p_train_grid = generate_grid_2d(domain_params["K_q"], domain_params["K_p"], domain_params["q_train_lim"], domain_params["p_train_lim"])
+    [q_train_range], [p_train_range], [q_train_grid], [p_train_grid] = generate_grid([domain_params["K_q"]], [domain_params["K_p"]], [domain_params["q_train_lim"]], [domain_params["p_train_lim"]], 1)
     x_train = np.column_stack([q_train_grid.flatten(), p_train_grid.flatten()])
     y_train_derivs = domain_params["dH"](x_train)
     x0 = np.array([0,0])
     f0 = domain_params["H"](x0.reshape(-1,2))
 
+    t_start = time()
     model = approximate_hamiltonian(x_train, y_train_derivs, x0, f0, model_params["M"], model_params["activation"], model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"], model_params["random_seed"], model_params["include_bias"])
+    t_end = time()
+
     model_name_tokens = [ k + str(v) for k, v in model_params.items()]
 
     train_mse_loss = MSE(domain_params["H"](x_train), model.transform(x_train))
@@ -293,7 +410,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     del q_train_range, p_train_range, q_train_grid, p_train_grid, x_train, y_train_derivs, x0, f0
 
     # validate with a broader data in the same range as the training data
-    q_val_range, p_val_range, q_val_grid, p_val_grid = generate_grid_2d(domain_params["V_q"], domain_params["V_p"], domain_params["q_val_lim"], domain_params["p_val_lim"])
+    [q_val_range], [p_val_range], [q_val_grid], [p_val_grid] = generate_grid([domain_params["V_q"]], [domain_params["V_p"]], [domain_params["q_val_lim"]], [domain_params["p_val_lim"]], 1)
     x_val = np.column_stack([q_val_grid.flatten(), p_val_grid.flatten()])
 
     val_mse_loss = MSE(domain_params["H"](x_val), model.transform(x_val))
@@ -329,7 +446,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
     del q_val_range, p_val_range, q_val_grid, p_val_grid, x_val, y_plot
 
     # test with a broader range as the train and val data
-    q_test_range, p_test_range, q_test_grid, p_test_grid = generate_grid_2d(domain_params["N_q"], domain_params["N_p"], domain_params["q_test_lim"], domain_params["p_test_lim"])
+    [q_test_range], [p_test_range], [q_test_grid], [p_test_grid] = generate_grid([domain_params["N_q"]], [domain_params["N_p"]], [domain_params["q_test_lim"]], [domain_params["p_test_lim"]], 1)
     x_test = np.column_stack([q_test_grid.flatten(), p_test_grid.flatten()])
 
     test_mse_loss = MSE(domain_params["H"](x_test), model.transform(x_test))
@@ -364,7 +481,7 @@ def experiment_2d_hamiltonian_system(domain_params, model_params, verbose=False,
 
     del q_test_range, p_test_range, q_test_grid, p_test_grid, x_test, y_plot
 
-    return (train_l2_error_relative), (val_l2_error_relative), (test_l2_error_relative)
+    return train_l2_error_relative, val_l2_error_relative, test_l2_error_relative, t_end - t_start
 
 
 # def experiment_4d_hamiltonian_system(domain_params, model_params, verbose=False, save=False):

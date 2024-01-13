@@ -1,3 +1,8 @@
+# import os
+# os.environ['NUMEXPR_MAX_THREADS'] = '16'
+# os.environ['NUMEXPR_NUM_THREADS'] = '16'
+# import numexpr as ne
+
 """
 Implements ReLU activation functions:
     - relu
