@@ -1,5 +1,7 @@
 """
 Implements identity activation function
+range: (-inf, inf)
+order of continuity: C^inf
 """
 
 import numpy as np

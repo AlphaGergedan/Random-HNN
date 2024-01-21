@@ -1,10 +1,9 @@
-import os
-os.environ['NUMEXPR_MAX_THREADS'] = '16'
-os.environ['NUMEXPR_NUM_THREADS'] = '16'
 import numexpr as ne
 
 """
 Implements sigmoid activation function
+range: (0,1)
+order of continuity: C^inf
 """
 
 def sigmoid(x):

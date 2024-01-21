@@ -1,10 +1,9 @@
-import os
-os.environ['NUMEXPR_MAX_THREADS'] = '16'
-os.environ['NUMEXPR_NUM_THREADS'] = '16'
 import numexpr as ne
 
 """
 Implements ELU activation function
+range: (-alpha, inf)
+order of continuity: C^1 if alpha=1, C^0 otherwise
 """
 
 def elu(x, alpha):
