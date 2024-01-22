@@ -1,14 +1,18 @@
 import numpy as np
 
-def generate_grid(N_qs, N_ps, q_lims, p_lims, dof):
+def generate_grid(N_qs, N_ps, q_lims, p_lims, dof, linspace=False, random_seed=None):
     """
     Generates meshgrid for Hamiltonian systems with positions q and momenta p
+
+    This function is intended for plotting since it creates the grid linearly spaced.
 
     @param N_qs: number of grid points in q in each dimension as a list
     @param N_ps: number of grid points in p in each dimension as a list
     @param q_lims: list of [q_min, q_max] in each dimension
     @param p_lims: list of [p_min, p_max] in each dimension
     @param dof: degree of freedom of the system
+    @param linspace: if True, the grid is linearly spaced, otherwise uniformly distributed
+    @param random_seed: used in case of uniform sampling if given
 
     @return q_ranges, p_ranges, q_grids, p_grids
     """
@@ -19,169 +23,74 @@ def generate_grid(N_qs, N_ps, q_lims, p_lims, dof):
     q_ranges = []
     p_ranges = []
 
-    for d in range(dof):
-        q_ranges.append(np.linspace(q_lims[d][0], q_lims[d][1], N_qs[d]))
-        p_ranges.append(np.linspace(p_lims[d][0], p_lims[d][1], N_ps[d]))
+    if linspace:
+        for d in range(dof):
+            q_ranges.append(np.linspace(q_lims[d][0], q_lims[d][1], N_qs[d]))
+            p_ranges.append(np.linspace(p_lims[d][0], p_lims[d][1], N_ps[d]))
+    else:
+        rng = np.random.default_rng(random_seed)
+        for d in range(dof):
+            q_ranges.append(rng.uniform(low=q_lims[d][0], high=q_lims[d][1], size=(N_qs[d])))
+            p_ranges.append(rng.uniform(low=p_lims[d][0], high=p_lims[d][1], size=(N_ps[d])))
 
     grids = np.meshgrid(*(q_ranges + p_ranges))
 
     # returns q_grids, p_grids
     return q_ranges, p_ranges, grids[:dof], grids[dof:]
 
-
-def generate_grid_2d(N_q, N_p, q_lim, p_lim):
+def generate_train_test_grid(train_qs, train_ps, train_q_lims, train_p_lims, test_qs, test_ps, test_q_lims, test_p_lims, dof, linspace=False, random_seed=None):
     """
-    Generates meshgrid for the 2D system with position q and momentum p
+    Generates meshgrid for Hamiltonian systems with positions q and momenta p
+    with uniform sampling from the given ranges. The test set does not include the training
+    set after the sampling.
 
-    @param N_q: number of grid points in q
-    @param N_p: number of grid points in p
-    @param q_lim: [q_min, q_max]
-    @param p_lim: [p_min, p_max]
-    @param noise: add gaussian noise to the grid with mean 0 and std = noise
+    This function is intended to create train,test split.
 
-    @return q_range, p_range, q_grid, p_grid
+    @param train_qs: number of grid points in q in each dimension as a list in the train set
+    @param train_ps: number of grid points in p in each dimension as a list in the train set
+    @param train_q_lims: list of [q_min, q_max] in each dimension in the train set
+    @param train_p_lims: list of [p_min, p_max] in each dimension in the train set
+    @param test_qs: number of grid points in q in each dimension as a list in the train set
+    @param test_ps: number of grid points in p in each dimension as a list in the test set
+    @param test_q_lims: list of [q_min, q_max] in each dimension in the test set
+    @param test_p_lims: list of [p_min, p_max] in each dimension in the test set
+    @param dof: degree of freedom of the system
+    @param linspace: if True, then the train set is sampled linearly spaced
+    @param random_seed: used in case of uniform sampling
+
+    @return train_q_ranges, train_p_ranges, train_q_grids, train_p_grids, test_q_ranges, test_p_ranges, test_q_grids, test_p_grids
     """
-    assert type(q_lim) == list and type(p_lim) == list
-    assert len(q_lim) == 2 and len(p_lim) == 2
-    assert q_lim[0] <= q_lim[1], "q_lim should be in ascending order"
-    assert p_lim[0] <= p_lim[1], "p_lim should be in ascending order"
+    params = [train_qs, train_ps, train_q_lims, train_p_lims, test_qs, test_ps, test_q_lims, test_p_lims]
+    for param in params:
+        assert len(param) == dof
 
-    q_range, p_range = np.linspace(q_lim[0], q_lim[1], N_q), np.linspace(p_lim[0], p_lim[1], N_p)
-    q_grid, p_grid = np.meshgrid(q_range, p_range)
+    # generate train set first
+    train_q_ranges, train_p_ranges, train_q_grid, train_p_grid = generate_grid(train_qs, train_ps, train_q_lims, train_p_lims, dof, linspace, random_seed)
 
-    return [q_range, p_range], [q_grid, p_grid]
+    # now generate distinct test set
+    test_q_ranges = []
+    test_p_ranges = []
 
-def generate_grid_4d(N_q1, N_q2, N_p1, N_p2, q1_lim, q2_lim, p1_lim, p2_lim):
-    """
-    Generates meshgrid for the 4D system with positions q and momenta p
+    # initialize empty set
+    for d in range(dof):
+        test_q_ranges.append([])
+        test_p_ranges.append([])
 
-    @param N_q1: number of grid points in q1
-    @param N_q2: number of grid points in q2
-    @param N_p1: number of grid points in p1
-    @param N_p2: number of grid points in p2
-    @param q1_lim: [q1_min, q1_max]
-    @param q2_lim: [q2_min, q2_max]
-    @param p1_lim: [p1_min, p1_max]
-    @param p2_lim: [p2_min, p2_max]
-    @param noise: add gaussian noise to the grid with mean 0 and std = noise
+    # sample distinct test samples
+    for d in range(dof):
+        while len(test_q_ranges[d]) < test_qs[d]:
+            candidate_samples = np.random.uniform(low=train_q_lims[d][0], high=train_q_lims[d][1], size=(test_qs[d] - len(test_q_ranges[d])))
+            new_samples = np.setdiff1d(candidate_samples, train_q_ranges[d])
+            test_q_ranges[d].extend(new_samples)
+        test_q_ranges[d] = np.asarray(test_q_ranges[d][:test_qs[d]])
 
-    @return q1_range, q2_range, p1_range, p2_range, q1_grid, q2_grid, p1_grid, p2_grid
-    """
-    assert type(q1_lim) == list and type(q2_lim) == list and type(p1_lim) == list and type(p2_lim) == list
-    assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2
-    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
-    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
+        while len(test_p_ranges[d]) < test_ps[d]:
+            candidate_samples = np.random.uniform(low=train_p_lims[d][0], high=train_p_lims[d][1], size=(test_ps[d] - len(test_p_ranges[d])))
+            new_samples = np.setdiff1d(candidate_samples, train_p_ranges[d])
+            test_p_ranges[d].extend(new_samples)
+        test_p_ranges[d] = np.asarray(test_p_ranges[d][:test_ps[d]])
 
-    q1_range, q2_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2)
-    p1_range, p2_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2)
-    q1_grid, q2_grid, p1_grid, p2_grid = np.meshgrid(q1_range, q2_range, p1_range, p2_range)
+    test_grids = np.meshgrid(*(test_q_ranges + test_p_ranges))
 
-    return q1_range, q2_range, p1_range, p2_range, q1_grid, q2_grid, p1_grid, p2_grid
-
-def generate_grid_6d(N_q1, N_q2, N_q3, N_p1, N_p2, N_p3, q1_lim, q2_lim, q3_lim, p1_lim, p2_lim, p3_lim):
-    """
-    Generates meshgrid for the 6D system with positions q and momenta p
-
-    @param N_q1: number of grid points in q1
-    @param N_q2: number of grid points in q2
-    @param N_q3: number of grid points in q3
-    @param N_p1: number of grid points in p1
-    @param N_p2: number of grid points in p2
-    @param N_p3: number of grid points in p3
-    @param q1_lim: [q1_min, q1_max]
-    @param q2_lim: [q2_min, q2_max]
-    @param q3_lim: [q3_min, q3_max]
-    @param p1_lim: [p1_min, p1_max]
-    @param p2_lim: [p2_min, p2_max]
-    @param p3_lim: [p3_min, p3_max]
-    @param noise: add gaussian noise to the grid with mean 0 and std = noise
-
-    @return q1_range, q2_range, q3_range, p1_range, p2_range, p3_range, q1_grid, q2_grid, q3_grid, p1_grid, p2_grid, p3_grid
-    """
-    assert type(q1_lim) == list and type(q2_lim) == list and type(q3_lim) == list and type(p1_lim) == list and type(p2_lim) == list and type(p3_lim) == list
-    assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(q3_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2 and len(p3_lim) == 2
-    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
-    assert q3_lim[0] <= q3_lim[1], "q3_lim should be in ascending order"
-    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
-    assert p3_lim[0] <= p3_lim[1], "p3_lim should be in ascending order"
-
-    q1_range, q2_range, q3_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2), np.linspace(q3_lim[0], q3_lim[1], N_q3)
-    p1_range, p2_range, p3_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2), np.linspace(p3_lim[0], p3_lim[1], N_p3)
-    q1_grid, q2_grid, q3_grid, p1_grid, p2_grid, p3_grid = np.meshgrid(q1_range, q2_range, q3_range, p1_range, p2_range, p3_range)
-
-    return q1_range, q2_range, q3_range, p1_range, p2_range, p3_range, q1_grid, q2_grid, q3_grid, p1_grid, p2_grid, p3_grid
-
-def generate_grid_8d(N_q1, N_q2, N_q3, N_q4, N_p1, N_p2, N_p3, N_p4, q1_lim, q2_lim, q3_lim, q4_lim, p1_lim, p2_lim, p3_lim, p4_lim):
-    """
-    Generates meshgrid for the 8D system with positions q and momenta p
-
-    @param N_q1: number of grid points in q1
-    @param N_q2: number of grid points in q2
-    @param N_q3: number of grid points in q3
-    @param N_q4: number of grid points in q4
-    @param N_p1: number of grid points in p1
-    @param N_p2: number of grid points in p2
-    @param N_p3: number of grid points in p3
-    @param N_p4: number of grid points in p4
-    @param q1_lim: [q1_min, q1_max]
-    @param q2_lim: [q2_min, q2_max]
-    @param q3_lim: [q3_min, q3_max]
-    @param q4_lim: [q4_min, q4_max]
-    @param p1_lim: [p1_min, p1_max]
-    @param p2_lim: [p2_min, p2_max]
-    @param p3_lim: [p3_min, p3_max]
-    @param p4_lim: [p4_min, p4_max]
-    @param noise: add gaussian noise to the grid with mean 0 and std = noise
-
-    @return q1_range, q2_range, q3_range, q4_range, p1_range, p2_range, p3_range, p4_range, q1_grid, q2_grid, q3_grid, q4_grid, p1_grid, p2_grid, p3_grid, p4_grid
-    """
-    assert type(q1_lim) == list and type(q2_lim) == list and type(q3_lim) == list and type(q4_lim) == list and type(p1_lim) == list and type(p2_lim) == list and type(p3_lim) == list and type(p4_lim) == list
-    assert len(q1_lim) == 2 and len(q2_lim) == 2 and len(q3_lim) == 2 and len(q4_lim) == 2 and len(p1_lim) == 2 and len(p2_lim) == 2 and len(p3_lim) == 2 and len(p4_lim) == 2
-    assert q1_lim[0] <= q1_lim[1], "q1_lim should be in ascending order"
-    assert q2_lim[0] <= q2_lim[1], "q2_lim should be in ascending order"
-    assert q3_lim[0] <= q3_lim[1], "q3_lim should be in ascending order"
-    assert q4_lim[0] <= q4_lim[1], "q4_lim should be in ascending order"
-    assert p1_lim[0] <= p1_lim[1], "p1_lim should be in ascending order"
-    assert p2_lim[0] <= p2_lim[1], "p2_lim should be in ascending order"
-    assert p3_lim[0] <= p3_lim[1], "p3_lim should be in ascending order"
-    assert p4_lim[0] <= p4_lim[1], "p4_lim should be in ascending order"
-
-    q1_range, q2_range, q3_range, q4_range = np.linspace(q1_lim[0], q1_lim[1], N_q1), np.linspace(q2_lim[0], q2_lim[1], N_q2), np.linspace(q3_lim[0], q3_lim[1], N_q3), np.linspace(q4_lim[0], q4_lim[1], N_q4)
-    p1_range, p2_range, p3_range, p4_range = np.linspace(p1_lim[0], p1_lim[1], N_p1), np.linspace(p2_lim[0], p2_lim[1], N_p2), np.linspace(p3_lim[0], p3_lim[1], N_p3), np.linspace(p4_lim[0], p4_lim[1], N_p4)
-
-    q1_grid, q2_grid, q3_grid, q4_grid, p1_grid, p2_grid, p3_grid, p4_grid = np.meshgrid(q1_range, q2_range, q3_range, q4_range, p1_range, p2_range, p3_range, p4_range)
-
-    return q1_range, q2_range, q3_range, q4_range, p1_range, p2_range, p3_range, p4_range, q1_grid, q2_grid, q3_grid, q4_grid, p1_grid, p2_grid, p3_grid, p4_grid
-
-# TODO generalize the functions above for generate_grid_2Nd(N_q, N_p, q_lim, p_lim) where each parameter is a list
-
-# def generate_grid_2Nd(N_q, N_p, q_lim, p_lim):
-    # """
-    # Generates meshgrid for the 2*N-Dimenional system with position q and momentum p
-#
-    # @param N_q: list of number of grid points in q, e.g. [N_q1, N_q2] for N=2
-    # @param N_p: list of number of grid points in p, e.g. [N_p1, N_p2] for N=2
-    # @param q_lim: list of list of [q_min,q_max], e.g. [ [q1_min, q1_max], [q2_min, q2_max] ] for N=2
-    # @param p_lim: list of list of [p_min,p_max], e.g. [ [p1_min, p1_max], [p2_min, p2_max] ] for N=2
-    # @param noise: add gaussian noise to the grid with mean 0 and std = noise
-#
-    # @return q_range, p_range, q_grid, p_grid
-    # """
-    # assert len(N_q) == len(N_p) == len(q_lim) == len(p_lim)
-#
-    # q_range = p_range = q_grid = p_grid = []
-#
-    # for i in range(len(N_q)):
-        # assert type(q_lim[i]) == list and type(p_lim[i]) == list
-        # assert len(q_lim[i]) == 2 and len(p_lim[i]) == 2
-#
-        # q_range.append(np.linspace(q_lim[i][0], q_lim[i][1], N_q[i]))
-        # p_range.append(np.linspace(p_lim[i][0], p_lim[i][1], N_p[i]))
-#
-    # q_grid, p_grid = np.meshgrid(q_range, p_range)
-#
-    # return q_range, p_range, q_grid, p_grid
+    # returns q_grids, p_grids
+    return train_q_ranges, train_p_ranges, train_q_grid, train_p_grid, test_p_ranges, test_p_ranges, test_grids[:dof], test_grids[dof:]
