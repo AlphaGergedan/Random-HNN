@@ -65,9 +65,10 @@ def generate_train_test_grid(train_qs, train_ps, train_q_lims, train_p_lims, tes
         assert len(param) == dof
 
     # generate train set first
-    train_q_ranges, train_p_ranges, train_q_grid, train_p_grid = generate_grid(train_qs, train_ps, train_q_lims, train_p_lims, dof, linspace, random_seed)
+    train_q_ranges, train_p_ranges, train_q_grid, train_p_grid = generate_grid(train_qs, train_ps, train_q_lims, train_p_lims, dof, linspace=linspace, random_seed=random_seed)
 
     # now generate distinct test set
+    rng = np.random.default_rng(random_seed)
     test_q_ranges = []
     test_p_ranges = []
 
@@ -79,13 +80,13 @@ def generate_train_test_grid(train_qs, train_ps, train_q_lims, train_p_lims, tes
     # sample distinct test samples
     for d in range(dof):
         while len(test_q_ranges[d]) < test_qs[d]:
-            candidate_samples = np.random.uniform(low=train_q_lims[d][0], high=train_q_lims[d][1], size=(test_qs[d] - len(test_q_ranges[d])))
+            candidate_samples = rng.uniform(low=train_q_lims[d][0], high=train_q_lims[d][1], size=(test_qs[d] - len(test_q_ranges[d])))
             new_samples = np.setdiff1d(candidate_samples, train_q_ranges[d])
             test_q_ranges[d].extend(new_samples)
         test_q_ranges[d] = np.asarray(test_q_ranges[d][:test_qs[d]])
 
         while len(test_p_ranges[d]) < test_ps[d]:
-            candidate_samples = np.random.uniform(low=train_p_lims[d][0], high=train_p_lims[d][1], size=(test_ps[d] - len(test_p_ranges[d])))
+            candidate_samples = rng.uniform(low=train_p_lims[d][0], high=train_p_lims[d][1], size=(test_ps[d] - len(test_p_ranges[d])))
             new_samples = np.setdiff1d(candidate_samples, train_p_ranges[d])
             test_p_ranges[d].extend(new_samples)
         test_p_ranges[d] = np.asarray(test_p_ranges[d][:test_ps[d]])
@@ -93,4 +94,4 @@ def generate_train_test_grid(train_qs, train_ps, train_q_lims, train_p_lims, tes
     test_grids = np.meshgrid(*(test_q_ranges + test_p_ranges))
 
     # returns q_grids, p_grids
-    return train_q_ranges, train_p_ranges, train_q_grid, train_p_grid, test_p_ranges, test_p_ranges, test_grids[:dof], test_grids[dof:]
+    return train_q_ranges, train_p_ranges, train_q_grid, train_p_grid, test_q_ranges, test_p_ranges, test_grids[:dof], test_grids[dof:]
