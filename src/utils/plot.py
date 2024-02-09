@@ -1,9 +1,9 @@
 import matplotlib.pyplot as plt
 
-def plot_1d(x, y, label='f(x)',
-            xpredict=None, ypredict=None, labelpredict='Approximation',
-            xlim=None, ylim=None,
-            xlabel='x', ylabel='y', title=None, verbose=True, save=''):
+
+def plot_1d(x, y,
+            label='f(x)', xpredict=None, ypredict=None, labelpredict='Approximation',
+            xlim=None, ylim=None, xlabel='x', ylabel='y', title=None, verbose=True, save=''):
     """
     x : x points
     y : y points
@@ -16,6 +16,7 @@ def plot_1d(x, y, label='f(x)',
     ylabel : label for y-axis
     title : title of the figure
     """
+    plt.clf()
     fig = plt.figure()
     if title is not None:
         ax = plt.gca()
@@ -31,16 +32,26 @@ def plot_1d(x, y, label='f(x)',
     if save != '':
         fig.savefig(save)
     if verbose:
+        plt.show()
         print()
     else:
         plt.close()
 
-def plot_2d(grid,
-            xrange, yrange,
-            vmin=None, vmax=None,
-            extent=None, contourlines=10,
-            xlabel='x', ylabel='y',
-            aspect=2.5, title=None, verbose=True, save=''):
+def plot_2d(grid, xrange, yrange,
+            vmin=None, vmax=None, extent=None, contourlines=10,
+            xlabel='x', ylabel='y', aspect=2.5, title=None, verbose=True, save=''):
+    """
+    @param grid: 2D meshgrid
+    @param xrange, yrange: value ranges on q and p axes
+    @param vmin, vmax: min max value for colorbar
+    @param contourlines: number of contour lines
+    @param xlabel, ylabel: label for axes
+    @param aspect: aspect ratio of the plot
+    @param title: title of the plot
+    @param verbose: whether to show plot
+    @param save: path to save plot, if empty string no plot is saved
+    """
+    plt.clf()
     fig = plt.figure()
     ax = plt.gca()
     im = ax.imshow(grid, extent=extent, vmin=vmin, vmax=vmax)
@@ -55,50 +66,29 @@ def plot_2d(grid,
     if save != '':
         fig.savefig(save)
     if verbose:
+        plt.show()
         print()
     else:
         plt.close()
 
-def plot_4d(grid, fixed_dimensions={ "q1": 0, "q2": 0 }):
+
+def plot_poincare(grid, xrange, yrange, extent, contourlines, xlabel, ylabel, aspect, title,
+                  fixed_dims={"q1": 0, "q2":0}, verbose=True, save=''):
     """
-    # xrange, yrange,
-            # vmin=None, vmax=None,
-            # extent=None, showcontour=False,
-            # xlabel='x', ylabel='y',
-            # aspect=2.5, title=None, save='',
+    Plots 2d poincare map using the plot_2d function
+    This function is just a wrapper
 
-    This plot function is for dynamical systems with 2 degrees of freedom
-    resulting a 4 dimensional system with q1,q2,p1,p2.
-
-    fixed_dimensions: specifies what to fix, must include two entries only for a 2d plot
-
-    Uses plot_2d but with selected features specified in the grid range
-    """
-    assert len(grid.shape) == 4
-    assert len(fixed_dimensions.keys()) == 2
-    for (k,v) in fixed_dimensions.items():
-        print(k)
-    pass
-
-    # # poincare grid
-    # plot_grid = grid[]
-    # plot_data_1 = y_grid[:, N_q1//2, N_p1//2, :].reshape((N_p2, N_q2))
-    # plot_2d(plot_data_1, q2_range, p2_range, extent=[q2_lim[0],q2_lim[1],p2_lim[0],p2_lim[1]], showcontour=True, xlabel='q2', ylabel='p2', aspect=1.5, title="H(x)" + "\n" + "with q1,p1 near 0")
-
-
-def plot_6d():
-    pass
-
-# for 2d poincare maps
-def plot_poincare(grid, xrange, yrange, extent, contourlines, xlabel, ylabel, aspect, title, fixed_dims={"q1": 0, "q2":0}, save=False, verbose=True):
-    """
-    Plots 2d poincare map
+    @param grid: 2D meshgrid
+    @param xrange, yrange: value ranges on q and p axes
+    @param contourlines: number of contour lines
+    @param xlabel, ylabel: label for axes
+    @param aspect: aspect ratio of the plot
+    @param title: title of the plot
+    @param fixed_dims: dict for fixed dimensions to plot for poincare
+    @param verbose: whether to show plot
+    @param save: path to save plot, if empty string no plot is saved
     """
     fixed_dims_names = list(fixed_dims.keys())
     fixed_dims_values = list(fixed_dims.values())
     title = title + "\n" + "with " + fixed_dims_names[0] + "=" + str(fixed_dims_values[0]) + "," + fixed_dims_names[1] + "=" + str(fixed_dims_values[1])
-    if save:
-        save = "./plots/" + title.replace("\n", "_").replace("=", "_").replace(",", "_").replace(" ", "_") + ".pdf"
-    else:
-        save = ""
     plot_2d(grid, xrange, yrange, extent=extent, contourlines=contourlines, xlabel=xlabel, ylabel=ylabel, aspect=aspect, title=title, save=save, verbose=verbose)
