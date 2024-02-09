@@ -35,12 +35,15 @@ class SinglePendulum():
         # q := position \in R^{n}
         # p := momentum \in R^{n}
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
+        x = x.reshape(-1, 2)
         (q,p) = x[:,0], x[:,1]
         return p**2 / 2 + (1 - np.cos(q))
+
     def dH(self, x):
         """
         Implementaion of the gradient of the Hamiltonian
         """
+        x = x.reshape(-1, 2)
         # x is same as above
         # output is array of values [y_1, y_2, ...] where y_i = (dH/dq, dH/dp)
         (q,p) = x[:,0], x[:,1]
