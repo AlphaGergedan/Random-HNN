@@ -24,18 +24,172 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 
-def swim(x_train, y_train, y_train_derivs_true, x0_true, f0_true,
-         n_hidden, f_activation, df_activation, parameter_sampler, rcond, random_seed=1, include_bias=True,
-         ):
+def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond, include_bias=True):
     """
-    implements SWIM method for Hamiltonian learning given the function values (supervised setting)
-    """
+    Fits the last layer of the model by solving least squares,
+    builds the matrix A and vector b and solves the linear equation for x (weights)
 
+    @param phi_1_derivs        : derivatives of hidden layer output w.r.t. input (K*D,M)
+    @param phi_1_of_x0         : hidden layer output of x0 (1,M)
+    @param y_train_derivs_true : derivatives of target function w.r.t. X (K*D)
+    @param f0_true             : true function value at input x0
+    @param rcond               : how approximately to solve the least squares
+    @include_bias              : whether to include bias in the weights
+
+    @returns                   : solved x (weights of the final linear layer)
+    """
+    # set up matrix A with shape (ND,M)
+    A =  np.vstack([
+        phi_1_derivs,
+        phi_1_of_x0
+    ])
+
+    # set up b (ND+1)
+    b = np.concatenate([
+        y_train_derivs_true.flatten(), # [[x11,x12],[x21,x22],[x31,x32]...[xK1,xK2]] e.g. for D=2
+        f0_true.flatten()
+    ])
+    # print(f'-> first 5 values of b: {b[0:5]}') # FIXME: remove debug
+
+    if include_bias:
+        # add the bias term to the weights (should be 0 for derivatives to not take it into account, but for phi_1_of_x0 it counts)
+        bias_term = np.concatenate([np.zeros(phi_1_derivs.shape[0]), np.ones(phi_1_of_x0.shape[0])])
+        # (ND + 1, M + 1)
+        A = np.column_stack([A, bias_term])
+
+    # solve the linear equations (if bias is included then shape is (M+1,))
+    c = np.linalg.lstsq(A, b, rcond=rcond)[0]
+    c = c.reshape(-1, 1) # final shape (M+1, 1) == [weights, bias] of shapes (M,1) and (1,1)
+    return c
+
+def hswim(x_train, y_train_derivs_true, x0, f0_true,
+          n_hidden, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond,
+          y_train_true=None, random_seed=1, include_bias=True):
+    """
+    Hamiltonian SWIM Implementation
+
+    @param x_train             : train set for the Hamiltonian of shape (K,D) where number of trainin points is K,
+                                 and DOF of the system is D/2 (q-position and p-momentum for a degree of freedom).
+                                 So for n DOF system we should have D=2n dimension for the training set (q,p)
+    @param y_train_true        : function values of x_train of shape (K,1), if given then usual SWIM is used to sample the network
+    @param y_train_derivs_true : derivatives of the Hamiltonian w.r.t x_train, therefore of shape (K,D)
+    @param x0                  : a reference point within the phase space of the target function
+    @param f0_true             : true function value of a single point, can be any point, usually initial state of the system, used when
+                                 setting the bias in the linear layer to shift the function to the correct values
+    @param n_hidden            : number of hidden neurons in the hidden layer
+    @param f_activation        : activation function used in the hidden layer
+    @param df_activation       : derivative of the activation function used in the hidden layer, needed to calculate phi_1_derivs
+    @param parameter_sampler   : either 'relu', 'tanh', 'random', sampling method of the weights in SWIM algorithm
+    @param sample_uniformly    : if true, data point picking distribution is uniform, meaning that we have same probability of picking any data point when sampling the weights
+                                 if false, initial guess is done using uniform sampling since we do not have access to function values in the training set, then
+                                 we can use the first approximation to compute y_train_values and use it to define the data point picking distribution in the SWIM algorithm
+                                 and rerun the approximation (A-SWIM)
+    @param rcond               : how approximately to solve the least squares
+    @param random_seed         : used in SWIM
+    @param include_bias        : whether to include bias in the weights
+
+    @returns                   : model (sklearn pipeline of the sampled shallow network)
+    """
+    assert len(x_train.shape) == 2
     K,D = x_train.shape
-    assert (K,D) == y_train_derivs_true.shape
-    # assert (K,) == y_train.shape
-    # assert (1,D) == x0_true.shape
-    # assert (1,) == f0_true.shape
+    assert y_train_derivs_true.shape == (K,D)
+    assert x0.shape == (1,D)
+    assert f0_true.shape == (1,1)
+    assert y_train_true is None or y_train_true.shape == (K,1)
+
+    if y_train_true is None:
+        # build the pipeline for having dense + linear layer set up, in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
+        model = Pipeline([
+            ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=True, random_seed=random_seed)),
+            ("linear", Linear(regularization_scale=rcond))
+        ])
+    else:
+        # if y_train_true is given, use usual SWIM
+        model = Pipeline([
+            ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
+            ("linear", Linear(regularization_scale=rcond))
+        ])
+
+    hidden_layer = model.steps[0][1]
+    linear_layer = model.steps[1][1]
+
+    model.fit(x_train, y_train_true)
+
+    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
+    hidden_layer.activation = df_activation
+    d_activation_wrt_x = hidden_layer.transform(x_train) # (K,M)
+    # the following stacks the derivatives in the matrix A for the linear system
+    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
+
+    # evaluate at x0
+    hidden_layer.activation = f_activation
+    phi_1_of_x0 = hidden_layer.transform(x0)
+
+    # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
+    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, include_bias=include_bias).reshape(-1,1)
+
+    if include_bias:
+        linear_layer.weights = c[:-1].reshape((-1,1))
+        linear_layer.biases = c[-1].reshape((1,1))
+    else:
+        linear_layer.weights = c.reshape((-1,1))
+        linear_layer.biases = np.zeros((1,1))
+
+    # set the info for linear layer, this will be set only once
+    linear_layer.layer_width = linear_layer.weights.shape[1]
+    linear_layer.n_parameters = np.prod(linear_layer.weights.shape) + np.prod(linear_layer.biases.shape)
+
+    # return in case of ELM or SWIM, A-SWIM (second step)
+    if sample_uniformly or y_train_true is not None:
+        return model
+
+    # approximate the Hamiltonian values (target function values) which we need in other sampling methods
+    y_train_pred = model.transform(x_train)
+
+    # recursive call with the y_train_pred values
+    return hswim(x_train, y_train_derivs_true, x0, f0_true,
+                 n_hidden, f_activation, df_activation, parameter_sampler, False, rcond,
+                 y_train_true=y_train_pred, random_seed=1, include_bias=True)
+
+def backward(model, activation, x):
+    """
+    Gives derivatives of the model w.r.t x
+
+    @param model        : should be a sklearn pipeline with hidden and linear layers
+    @param activation   : string e.g. "relu", "tanh", "sigmoid", "elu", "identity"
+    @param x            : input data (K, D)
+
+    @returns dx         : derivatives of NN w.r.t x
+    """
+    # get dense and linear layer
+    hidden_layer = model.steps[0][1]
+    linear_layer = model.steps[1][1]
+    f_activation, df_activation = parse_activation(activation)
+    assert len(x.shape) == 2
+
+    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
+    hidden_layer.activation = df_activation
+    d_activation_wrt_x = hidden_layer.transform(x) # (K,M)
+    hidden_layer.activation = f_activation
+
+    # the following stacks the derivatives in the matrix A for the linear system
+    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
+
+    # linear layer
+    phi_2_derivs = phi_1_derivs @ linear_layer.weights # avoid bias! it has no effect on derivative w.r.t x
+
+    return phi_2_derivs.reshape(x.shape) # (K, D)
+
+############### CLEAN THE CODE BELOW
+
+def swim(x_train, y_train, y_train_derivs_true, x0_true, f0_true,
+          n_hidden, f_activation, df_activation, parameter_sampler, rcond,
+          random_seed=1, include_bias=True,):
+    """
+    Hamiltonian SWIM Implementation
+    """
+    K,D = x_train.shape
+    assert x_train.shape == y_train_derivs_true.shape # (K,D)
 
     model_ansatz = Pipeline([
         ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
@@ -59,10 +213,7 @@ def swim(x_train, y_train, y_train_derivs_true, x0_true, f0_true,
     phi_1_of_x0 = hidden_layer.transform(x0_true)
 
     # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
-    # t_start = time()
-    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, bias=include_bias).reshape(-1,1)
-    # t_end = time()
-    # print("--> linear layer approximated by solving linear system in:", t_end - t_start, "seconds")
+    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, include_bias=include_bias).reshape(-1,1)
 
     if include_bias:
         linear_layer.weights = c[:-1].reshape((-1,1))
@@ -135,7 +286,7 @@ def approximate_hamiltonian(
     phi_1_of_x0 = hidden_layer.transform(x0)
 
     # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
-    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0, rcond=rcond, bias=include_bias).reshape(-1,1)
+    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0, rcond=rcond, include_bias=include_bias).reshape(-1,1)
 
     if include_bias:
         linear_layer.weights = c[:-1].reshape((-1,1))
@@ -155,7 +306,7 @@ def approximate_hamiltonian(
     # approximate the Hamiltonian values (target function values) which we need in other sampling methods
     y_train_hat = model_ansatz.transform(x_train)
 
-    # build the pipeline for having dense + linear layer set up, this is the second approximation with weight probabilities, so sample_uniformly is set to False
+    # build the pipeline for having dense + linear layer set up, in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
     model_ansatz = Pipeline([
         ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
         ("linear", Linear(regularization_scale=rcond))
@@ -165,14 +316,14 @@ def approximate_hamiltonian(
     hidden_layer = model_ansatz.steps[0][1]
     linear_layer = model_ansatz.steps[1][1]
 
-    # set up the linear system to solve the outer coefficients
-    # use weight probabilities with the distances of the predicted function values
+    # model_ansatz.fit(x_train, np.ones((K, 1))) # output has one feature dimension
+    # use SWIM algorithm with uniform data point picking probability to sample the hidden layer weights
     model_ansatz.fit(x_train, y_train_hat)
 
     # calculate dense layer derivative w.r.t. x => of shape (KD,M)
     hidden_layer.activation = df_activation
     d_activation_wrt_x = hidden_layer.transform(x_train) # (K,M)
-    # the following stacks the derivatives in the matrix A explained as above
+    # the following stacks the derivatives in the matrix A for the linear system
     phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
 
     # evaluate at x0
@@ -180,8 +331,8 @@ def approximate_hamiltonian(
     x0 = x0.reshape(1, D)
     phi_1_of_x0 = hidden_layer.transform(x0)
 
-    # STEP 1: approximate the target function with uniform sampling of the weights
-    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0, rcond=rcond, bias=include_bias).reshape(-1,1)
+    # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
+    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0, rcond=rcond, include_bias=include_bias).reshape(-1,1)
 
     if include_bias:
         linear_layer.weights = c[:-1].reshape((-1,1))
@@ -190,54 +341,16 @@ def approximate_hamiltonian(
         linear_layer.weights = c.reshape((-1,1))
         linear_layer.biases = np.zeros((1,1))
 
+    # set the info for linear layer, this will be set only once
+    linear_layer.layer_width = linear_layer.weights.shape[1]
+    linear_layer.n_parameters = np.prod(linear_layer.weights.shape) + np.prod(linear_layer.biases.shape)
+
     return model_ansatz
 
-def backward(model, activation, x):
-    """
-    Gives derivatives of NN w.r.t x
-
-    @param model: should be a sklearn pipeline with hidden and linear layers
-    @param activation: string e.g. "relu", "tanh", "sigmoid", "elu", "identity"
-    @param x: input data (K, D)
-    @returns dx: derivatives of NN w.r.t x
-    """
-    # get dense and linear layer
-    hidden_layer = model.steps[0][1]
-    linear_layer = model.steps[1][1]
-    f_activation, df_activation = parse_activation(activation)
-    assert len(x.shape) == 2
-
-    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
-    hidden_layer.activation = df_activation
-    d_activation_wrt_x = hidden_layer.transform(x) # (K,M)
-    hidden_layer.activation = f_activation
-
-    # the following stacks the derivatives in the matrix A for the linear system
-    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
-
-    # linear layer
-    phi_2_derivs = phi_1_derivs @ linear_layer.weights # avoid bias! it has no effect on derivative w.r.t x
-
-    return phi_2_derivs.reshape(x.shape) # (K, D)
 
 
 def model_layer_params(model):
     return [ step[1].n_parameters for step in model.steps ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 def validate(model, domain_params, model_params, verbose=False):
@@ -322,41 +435,6 @@ def fit(domain_params, model_params, verbose=False, save=False):
         pass
 
     return model, train_mse_error, train_l2_error_relative, t_end-t_start, model_name_tokens
-
-
-def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0, rcond, bias=True):
-    """
-    phi_1_derivs  : derivatives of hidden layer output w.r.t. input (N*D,M)
-    phi_1_of_x0   : hidden layer output of x0 (1,M)
-    y_train_derivs_true: derivatives of target function w.r.t. X (N*D)
-    f0            : output of the target function with input x0 (1,1)
-    bias          : whether to include bias in the weights
-
-    Builds the matrix A and vector b and solves the linear equation for w
-    """
-    # set up matrix A with shape (ND,M)
-    A =  np.vstack([
-        phi_1_derivs,
-        phi_1_of_x0
-    ])
-
-    # set up b (ND+1)
-    b = np.concatenate([
-        y_train_derivs_true.flatten(), # [[x11,x12],[x21,x22],[x31,x32]...[xK1,xK2]] e.g. for D=2
-        f0
-    ])
-    # print(f'-> first 5 values of b: {b[0:5]}') # FIXME: remove debug
-
-    if bias:
-        # add the bias term to the weights (should be 0 for derivatives to not take it into account, but for phi_1_of_x0 it counts)
-        bias_term = np.concatenate([np.zeros(phi_1_derivs.shape[0]), np.ones(phi_1_of_x0.shape[0])])
-        # (ND + 1, M + 1)
-        A = np.column_stack([A, bias_term])
-
-    # solve the linear equations (if bias is included then shape is (M+1,))
-    c = np.linalg.lstsq(A, b, rcond=rcond)[0]
-    c = c.reshape(-1, 1) # final shape (M+1, 1) == [weights, bias] of shapes (M,1) and (1,1)
-    return c
 
 
 
