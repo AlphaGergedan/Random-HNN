@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 def plot_1d(x, y,
@@ -92,3 +93,70 @@ def plot_poincare(grid, xrange, yrange, extent, contourlines, xlabel, ylabel, as
     fixed_dims_values = list(fixed_dims.values())
     title = title + "\n" + "with " + fixed_dims_names[0] + "=" + str(fixed_dims_values[0]) + "," + fixed_dims_names[1] + "=" + str(fixed_dims_values[1])
     plot_2d(grid, xrange, yrange, extent=extent, contourlines=contourlines, xlabel=xlabel, ylabel=ylabel, aspect=aspect, title=title, save=save, verbose=verbose)
+
+def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False, verbose=False, save=''):
+    assert len(ys) == 4 # we have 4 models right now
+    assert legends is None or len(legends) == 4
+
+    if logscale:
+       ys = [ np.log10(y) for y in ys ]
+
+    plt.clf()
+    plt.plot(x, ys[0], c="#05c9ff", marker="+")    # light blue
+    plt.plot(x, ys[1], c="#ff0000", marker=".")   # light red
+    plt.plot(x, ys[2], c="#28fa02", marker="x")  # light green
+    plt.plot(x, ys[3], c="#ffff00", marker="*")  # light yellow
+    plt.xlabel(xlabel)
+    plt.xlim(xlim)
+    plt.xticks(xticks)
+    plt.ylabel(ylabel + r' on $log_{10}$ scale')
+    plt.grid()
+    plt.legend(legends, fontsize='medium', shadow=True, loc='best')
+    plt.savefig(save)
+    plt.close()
+
+def plot_hists(experiment, nhists, save=''):
+    # ELM
+    weights = np.mean([ run['ELM'].steps[0][1].weights for run in experiment['runs'] ], axis=1)
+    biases = np.mean([ run['ELM'].steps[0][1].biases for run in experiment['runs']], axis=1)
+    plt.clf()
+    plt.hist(weights, nhists)
+    plt.savefig(save + '_elm_weights_hist.png')
+    plt.close()
+    plt.clf()
+    plt.hist(biases, nhists)
+    plt.savefig(save + '_elm_biases_hist.png')
+    plt.close()
+    # U-SWIM
+    weights = np.mean([ run['U-SWIM'].steps[0][1].weights for run in experiment['runs'] ], axis=1)
+    biases = np.mean([ run['U-SWIM'].steps[0][1].biases for run in experiment['runs']], axis=1)
+    plt.clf()
+    plt.hist(weights, nhists)
+    plt.savefig(save + '_uswim_weights_hist.png')
+    plt.close()
+    plt.clf()
+    plt.hist(biases, nhists)
+    plt.savefig(save + '_uswim_biases_hist.png')
+    plt.close()
+    # A-SWIM
+    weights = np.mean([ run['A-SWIM'].steps[0][1].weights for run in experiment['runs'] ], axis=1)
+    biases = np.mean([ run['A-SWIM'].steps[0][1].biases for run in experiment['runs']], axis=1)
+    plt.clf()
+    plt.hist(weights, nhists)
+    plt.savefig(save + '_aswim_weights_hist.png')
+    plt.close()
+    plt.clf()
+    plt.hist(biases, nhists)
+    plt.savefig(save + '_aswim_biases_hist.png')
+    plt.close()
+    # SWIM
+    weights = np.mean([ run['SWIM'].steps[0][1].weights for run in experiment['runs'] ], axis=1)
+    biases = np.mean([ run['SWIM'].steps[0][1].biases for run in experiment['runs']], axis=1)
+    plt.clf()
+    plt.hist(weights, nhists)
+    plt.savefig(save + '_swim_weights_hist.png')
+    plt.close()
+    plt.clf()
+    plt.hist(biases, nhists)
+    plt.savefig(save + '_swim_biases_hist.png')
+    plt.close()
