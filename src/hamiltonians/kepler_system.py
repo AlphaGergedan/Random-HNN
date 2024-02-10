@@ -17,7 +17,8 @@ class KeplerSystem():
         assert x.shape == (x.shape[0],8)
         (q1,q2,q3,q4,p1,p2,p3,p4) = x[:,0], x[:,1], x[:,2], x[:,3], x[:,4], x[:,5], x[:,6], x[:,7]
 
-        return (p1**2 + p2**2 + p3**2 + p4**2) / 2 - (q1**2 + q2**2 + q3**2 + q4**2)**(-0.5)
+        f = (p1**2 + p2**2 + p3**2 + p4**2) / 2 - (q1**2 + q2**2 + q3**2 + q4**2)**(-0.5)
+        return f.reshape(-1, 1)
 
     def dH(self, x):
         # x is same as above
@@ -39,4 +40,5 @@ class KeplerSystem():
         dp4 = p4
 
         # (x.shape[0], 4)
-        return np.array([ dq1, dq2, dq3, dq4, dp1, dp2, dp3, dp4 ]).T
+        df = np.array([ dq1, dq2, dq3, dq4, dp1, dp2, dp3, dp4 ]).T
+        return df.reshape(-1, 4)

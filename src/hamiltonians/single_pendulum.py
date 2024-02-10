@@ -37,7 +37,8 @@ class SinglePendulum():
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
         x = x.reshape(-1, 2)
         (q,p) = x[:,0], x[:,1]
-        return p**2 / 2 + (1 - np.cos(q))
+        f = p**2 / 2 + (1 - np.cos(q))
+        return f.reshape(-1, 1)
 
     def dH(self, x):
         """
@@ -49,4 +50,5 @@ class SinglePendulum():
         (q,p) = x[:,0], x[:,1]
         dq = np.sin(q)
         dp = p
-        return np.array([dq, dp]).T
+        df = np.array([dq, dp]).T
+        return df.reshape(-1, 2)

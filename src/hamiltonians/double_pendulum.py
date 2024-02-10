@@ -40,7 +40,9 @@ class DoublePendulum():
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
         assert x.shape == (x.shape[0],4)
         (q1,q2,p1,p2) = x[:,0], x[:,1], x[:,2], x[:,3]
-        return ( (p1**2 + 2 * p2**2 - 2 * p1 * p2 * np.cos(q1 - q2) ) / (2 * (1 + np.sin(q1 - q2)**2)) ) - 2 * np.cos(q1) - np.cos(q2)
+        f = ( (p1**2 + 2 * p2**2 - 2 * p1 * p2 * np.cos(q1 - q2) ) / (2 * (1 + np.sin(q1 - q2)**2)) ) - 2 * np.cos(q1) - np.cos(q2)
+        return f.reshape(-1, 1)
+
     def dH(self, x):
         """
         Implementaion of the gradient of the Hamiltonian
@@ -63,4 +65,5 @@ class DoublePendulum():
         dp2 = (2 * p2 - p1 * np.cos(q1 - q2)) / (1 + np.sin(q1 - q2)**2)
 
         # (x.shape[0], 4)
-        return np.array([ dq1, dq2, dp1, dp2 ]).T
+        df = np.array([ dq1, dq2, dp1, dp2 ]).T
+        return df.reshape(-1, 4)

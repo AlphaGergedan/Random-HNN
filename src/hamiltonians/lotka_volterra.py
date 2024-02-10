@@ -15,7 +15,8 @@ class LotkaVolterra():
         H(q,p) = p - e^p + 2q - e^q
         """
         (q,p) = x[:,0], x[:,1]
-        return p - np.e**p + 2*q - np.e**q
+        f = p - np.e**p + 2*q - np.e**q
+        return f.reshape(-1, 1)
 
     def dH(self, x):
         """
@@ -24,4 +25,5 @@ class LotkaVolterra():
         (q,p) = x[:,0], x[:,1]
         dq = 2 - np.e**q
         dp = 1 - np.e**p
-        return np.array([dq, dp]).T
+        df = np.array([dq, dp]).T
+        return df.reshape(-1, 2)

@@ -25,7 +25,9 @@ class HarmonicOscillator():
         # x is an array of inputs [x_1,x_2,...] where x_i = (x,y) \in R^{2n} where n is number of degrees of freedom
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
         (x,y) = input_x[:,0], input_x[:,1]
-        return y**2 / 2 + self.k * (x**2) / 2
+        f = y**2 / 2 + self.k * (x**2) / 2
+        return f.reshape(-1, 1)
+
     def dH(self, input_x):
         """
         Implementaion of the gradient of the Hamiltonian
@@ -36,4 +38,5 @@ class HarmonicOscillator():
         (x,y) = input_x[:,0], input_x[:,1]
         dx = self.k * x
         dy = y
-        return np.array([dx, dy]).T
+        df = np.array([dx, dy]).T
+        return df.reshape(-1, 2)

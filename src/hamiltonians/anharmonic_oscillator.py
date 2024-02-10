@@ -13,7 +13,9 @@ class AnharmonicOscillator():
         H(q,p) = p^2 / 2 + q^2 / 2 + q^4 / 4
         """
         (q,p) = input_x[:,0], input_x[:,1]
-        return p**2 / 2 + q**2 / 2 + q**4 / 4
+        f = p**2 / 2 + q**2 / 2 + q**4 / 4
+        return f.reshape(-1, 1)
+
     def dH(self, input_x):
         """
         Implementaion of the gradient of the Hamiltonian
@@ -21,4 +23,5 @@ class AnharmonicOscillator():
         (q,p) = input_x[:,0], input_x[:,1]
         dq = q + q**3
         dp = p
-        return np.array([dq, dp]).T
+        df = np.array([dq, dp]).T
+        return df.reshape(-1, 2)
