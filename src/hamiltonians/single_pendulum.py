@@ -4,18 +4,21 @@ class SinglePendulum():
     """
     1 dof
     """
-    def __init__(self, m=1, l=1, g=1):
+    def __init__(self, m=1, l=1, g=1, f=1):
         """
         TODO setup specific
         m: Mass of pendulum
         l: Length of pendulum
         g: Gravitational acceleration
+        f: frequency of the trigonometric expression, if you increase this value
+           then the function derivatives become bigger, and function oscillates more
         TODO damped nonlinear pendulum: L*THETA_dot_dot + b*THETA_dot + g*sin(THETA) = 0
         TODO forced damped nonlinear pendulum: L*THETA_dot_dot + b*THETA_dot + g*sin(THETA) = F*cos(wt)
         """
         self.m = m
         self.l = l
         self.g = g
+        self.f = f
 
     # Hamiltonian Formulations
 
@@ -37,7 +40,7 @@ class SinglePendulum():
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
         x = x.reshape(-1, 2)
         (q,p) = x[:,0], x[:,1]
-        f = p**2 / 2 + (1 - np.cos(q))
+        f = p**2 / 2 + (1 - np.cos(self.f * q))
         return f.reshape(-1, 1)
 
     def dH(self, x):
@@ -48,7 +51,7 @@ class SinglePendulum():
         # x is same as above
         # output is array of values [y_1, y_2, ...] where y_i = (dH/dq, dH/dp)
         (q,p) = x[:,0], x[:,1]
-        dq = np.sin(q)
+        dq = self.f * np.sin(self.f * q)
         dp = p
         df = np.array([dq, dp]).T
         return df.reshape(-1, 2)
