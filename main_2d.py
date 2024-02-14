@@ -28,7 +28,7 @@ parser.add_argument('q_train_lim_start', type=float, help='Train q range start')
 parser.add_argument('q_train_lim_end', type=float, help='Train q range end')
 parser.add_argument('p_train_lim_start', type=float, help='Train p range start')
 parser.add_argument('p_train_lim_end', type=float, help='Train p range end')
-parser.add_argument('train_set_linspaced', type=bool, help='Whether train set is linspaced')
+parser.add_argument('-trainsetlinspaced', help='Whether train set is linspaced', action='store_true', default=False)
 parser.add_argument('q_test', type=int, help='Number of test points in q')
 parser.add_argument('p_test', type=int, help='Number of test points in p')
 parser.add_argument('q_test_lim_start', type=float, help='Test q range start')
@@ -42,7 +42,7 @@ parser.add_argument('M', type=int, help='Number of hidden neurons')
 parser.add_argument('activation', type=str, help='Activation function')
 parser.add_argument('parameter_sampler', type=str, help='Param sampler for SWIM: random, tanh, relu')
 parser.add_argument('rcond', type=float, help='How precise the lstsq is')
-parser.add_argument('include_bias', type=bool, help='Whether to include bias in the network')
+parser.add_argument('-includebias', help='Whether to include bias in the network', action='store_true', default=False)
 
 parser.add_argument('output_dir', type=str, help='Output directory for the experiment results')
 
@@ -60,7 +60,7 @@ domain_params = {
     "q_test": args.q_test, "p_test": args.p_test, "q_test_lim": [args.q_test_lim_start,args.q_test_lim_end], "p_test_lim": [args.p_test_lim_start,args.p_test_lim_end],
     # Recommended is to have equal number of points to the number of parameters of the network
     # in our case number of params are = 4M + 1
-    "train_set_linspaced": args.train_set_linspaced,
+    "train_set_linspaced": args.trainsetlinspaced,
     "train_random_seed": None, # 23451
     "test_random_seed": None, # 54321
     "repeat": args.repeat,
@@ -69,41 +69,41 @@ elm_params = {
     "name": "ELM",                                  # discriminative name for the model
     "M": args.M,                                    # hidden nodes
     "activation": args.activation,                  # activation function
-    "parameter_sampler": "random",                      # weight sampling strategy, random for ELM
+    "parameter_sampler": "random",                  # weight sampling strategy, random for ELM
     "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
     "random_seed": None,#98765                      # for reproducability
-    "include_bias": args.include_bias,              # bias in linear layer
+    "include_bias": args.includebias,               # bias in linear layer
 }
 uswim_params = {
     "name": "U-SWIM",                               # discriminative name for the model
     "M": args.M,                                    # hidden nodes
     "activation": args.activation,                  # activation function
-    "parameter_sampler": args.parameter_sampler,            # weight sampling strategy
+    "parameter_sampler": args.parameter_sampler,    # weight sampling strategy
     "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
     "random_seed": None,#98765                      # for reproducability
-    "include_bias": args.include_bias,              # bias in linear layer
+    "include_bias": args.includebias,               # bias in linear layer
 }
 aswim_params = {
     "name": "A-SWIM",                               # discriminative name for the model
     "M": args.M,                                    # hidden nodes
     "activation": args.activation,                  # activation function
-    "parameter_sampler": args.parameter_sampler,            # weight sampling strategy
+    "parameter_sampler": args.parameter_sampler,    # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights, if set to false, we use approximate values to compute the prob. distribution
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
     "random_seed": None,#98765                      # for reproducability
-    "include_bias": args.include_bias,              # bias in linear layer
+    "include_bias": args.includebias,               # bias in linear layer
 }
 swim_params = {
     "name": "SWIM",                                 # discriminative name for the model
     "M": args.M,                                    # hidden nodes
     "activation": args.activation,                  # actiation function
-    "parameter_sampler": args.parameter_sampler,            # weight sampling strategy
+    "parameter_sampler": args.parameter_sampler,    # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
     "random_seed": None,#98765                      # for reproducability
-    "include_bias": args.include_bias               # bias in linear layer
+    "include_bias": args.includebias,               # bias in linear layer
 }
 
 models = [elm_params, uswim_params, aswim_params, swim_params]
@@ -126,12 +126,12 @@ print('-> Experiment Start')
 print()
 
 # current seeds, will be incremented on each run for randomness
-# train_random_seed = 3943
-# test_random_seed = 29548
-# model_random_seed = 992472
-train_random_seed = None
-test_random_seed = None
-model_random_seed = None
+train_random_seed = 3943
+test_random_seed = 29548
+model_random_seed = 992472
+# train_random_seed = None
+# test_random_seed = None
+# model_random_seed = None
 
 # file to save in the end of experiment to document the results
 # each run item will document an iteration, there are in total domain_params["repeat"] iterations
@@ -201,15 +201,16 @@ for i in range(domain_params['repeat']):
         current_run['test_errors'][model_params['name']] = get_errors(y_test_true, y_test_pred)
 
         # update seeds
-        # train_random_seed += 1
-        # test_random_seed += 1
-        # model_random_seed += 1
+        train_random_seed += 1
+        test_random_seed += 1
+        model_random_seed += 1
 
     experiment['runs'].append(current_run)
 
 print('-----------------------------')
 print('-> Runs finished')
-dump(experiment, os.path.join(args.output_dir, f'{args.q_train}q_train{args.p_train}p_train_{args.system_name}_NOSEED.pkl'))
+# dump(experiment, os.path.join(args.output_dir, f'{args.q_train}q_train{args.p_train}p_train_{args.system_name}_NOSEED.pkl'))
+dump(experiment, os.path.join(args.output_dir, f'{args.q_train}q_train{args.p_train}p_train_{args.system_name}.pkl'))
 print('-> Saved experiment results under: ' + args.output_dir)
 
 print()
