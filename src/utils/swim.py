@@ -149,7 +149,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     # recursive call with the y_train_pred values
     return hswim(x_train, y_train_derivs_true, x0, f0_true,
                  n_hidden, f_activation, df_activation, parameter_sampler, False, rcond,
-                 y_train_true=y_train_pred, random_seed=1, include_bias=True)
+                 y_train_true=y_train_pred, random_seed=random_seed, include_bias=True)
 
 def backward(model, activation, x):
     """

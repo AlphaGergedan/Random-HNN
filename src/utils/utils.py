@@ -87,14 +87,23 @@ def get_errors(y_true, y_pred):
 def get_results(experiment, model="ELM", dataset="train", type="errors", error_function="mean_absolute_error"):
     """
     @param experiment : Experiment object consisting of multiple runs
-    @param model      : "ELM", "U-SWIM", "A-SWIM"
+    @param model      : "ELM", "U-SWIM", "A-SWIM", "SWIM"
     @param dataset    : "train", "test"
     @param type       : "errors", "losses" where "errors" are calculated over the true and predicted H(x) values, "losses" are calculated over the true and predicted derivatives of H(x)
     @param function   : "mean_absolute_error", "mean_squared_error", "l2_error", "l2_error_relative"
 
     @returns list of results
     """
-    return [ run[dataset + '_' + type][model][error_function] for run in experiment['runs']]
+    return [ run[dataset + '_' + type][model][error_function] for run in experiment['runs'] ]
+
+def get_train_times(experiment, model="ELM"):
+    """
+    @param experiment : Experiment object consisting of multiple runs
+    @param model      : "ELM", "U-SWIM", "A-SWIM", "SWIM"
+
+    @returns train times in seconds
+    """
+    return [ run['train_times'][model] for run in experiment['runs'] ]
 
 def get_summary(experiment, models, datasets, types, error_functions, stats):
     summary = []

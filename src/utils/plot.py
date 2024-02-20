@@ -94,7 +94,7 @@ def plot_poincare(grid, xrange, yrange, extent, contourlines, xlabel, ylabel, as
     title = title + "\n" + "with " + fixed_dims_names[0] + "=" + str(fixed_dims_values[0]) + "," + fixed_dims_names[1] + "=" + str(fixed_dims_values[1])
     plot_2d(grid, xrange, yrange, extent=extent, contourlines=contourlines, xlabel=xlabel, ylabel=ylabel, aspect=aspect, title=title, save=save, verbose=verbose)
 
-def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False, verbose=False, save=''):
+def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False, verbose=False, save='', rotate_xticks=False):
     assert len(ys) == 4 # we have 4 models right now
     assert legends is None or len(legends) == 4
 
@@ -108,8 +108,18 @@ def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False
     plt.plot(x, ys[3], c="#ffff00", marker="*")  # light yellow
     plt.xlabel(xlabel)
     plt.xlim(xlim)
-    plt.xticks(xticks)
-    plt.ylabel(ylabel + r' on $log_{10}$ scale')
+
+    if rotate_xticks:
+        # Rotate x-ticks by 45 degrees and align them to the right
+        plt.xticks(xticks, rotation=30, ha='right', fontsize=7)
+    else:
+        plt.xticks(xticks)
+
+    if logscale:
+        plt.ylabel(ylabel + r', on $log_{10}$ scale')
+    else:
+        plt.ylabel(ylabel)
+
     plt.grid()
     plt.legend(legends, fontsize='medium', shadow=True, loc='best')
     plt.savefig(save)
