@@ -59,11 +59,28 @@ assert args.dof == len(args.qtest) == len(args.ptest) == len(args.qtestlimstart)
 # parse system
 H, dH = parse_system_name(args.system_name)
 
+# parse domain boundaries
+q_train_lim, p_train_lim, q_test_lim, p_test_lim = [], [], [], []
+for d in range(args.dof):
+    current_q_train_lim = [args.qtrainlimstart[d], args.qtrainlimend[d]]
+    q_train_lim.append(current_q_train_lim)
+    current_p_train_lim = [args.ptrainlimstart[d], args.ptrainlimend[d]]
+    p_train_lim.append(current_p_train_lim)
+    current_q_test_lim = [args.qtestlimstart[d], args.qtestlimend[d]]
+    q_test_lim.append(current_q_test_lim)
+    current_p_test_lim = [args.ptestlimstart[d], args.ptestlimend[d]]
+    p_test_lim.append(current_p_test_lim)
+    print(f"iteration {d}, q_train_lim is {q_train_lim}")
+
+print(f"q_train_lim: {q_train_lim}")
+print(f"p_train_lim: {p_train_lim}")
+print(f"q_test_lim: {q_test_lim}")
+print(f"p_test_lim: {p_test_lim}")
+
 domain_params = {
-    "system_name": args.system_name,
-    "H": H, "dH": dH,
-    "q_train": args.qtrain, "p_train": args.ptrain, "q_train_lim": [args.qtrainlimstart,args.qtrainlimend], "p_train_lim": [args.ptrainlimstart,args.ptrainlimend],
-    "q_test": args.qtest, "p_test": args.ptest, "q_test_lim": [args.qtestlimstart,args.qtestlimend], "p_test_lim": [args.ptestlimstart,args.ptestlimend],
+    "system_name": args.system_name, "H": H, "dH": dH, "dof": args.dof,
+    "q_train": args.qtrain, "p_train": args.ptrain, "q_train_lim": q_train_lim, "p_train_lim": p_train_lim,
+    "q_test": args.qtest, "p_test": args.ptest,  "q_test_lim": q_test_lim, "p_test_lim": p_test_lim,
     # Recommended is to have equal number of points to the number of parameters of the network
     # in our case number of params are = 4M + 1
     "train_set_linspaced": args.trainsetlinspaced,
@@ -71,6 +88,7 @@ domain_params = {
     "test_random_seed": None,  # will be set uniquely for each run
     "repeat": args.repeat,
 }
+
 elm_params = {
     "name": "ELM",                                  # discriminative name for the model
     "M": args.M,                                    # hidden nodes
@@ -165,11 +183,13 @@ for i in range(domain_params['repeat']):
         # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
         train_rng = np.random.default_rng(train_random_seed)
         test_rng = np.random.default_rng(test_random_seed)
-        _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], [domain_params["q_train_lim"], domain_params["p_train_lim"]], domain_params["q_test"], domain_params["p_test"], [domain_params["q_test_lim"], domain_params["p_test_lim"]], test_rng=test_rng, dof=1, linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
+        _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
+        # column stacked (q_i, p_i): (N, 2*dof)
         x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
         del q_train_grids, p_train_grids
         y_train_derivs_true = domain_params["dH"](x_train)
-        x0 = np.array([[0,0]])
+        # input is of shape 2*dof, x0 = [[q_1, q_2, .., q_dof, p_1, p_2, .., p_dof]]
+        x0 = np.zeros(2 * domain_params["dof"]).reshape(1, -1)
         f0 = domain_params["H"](x0)
 
         f_activation, df_activation = parse_activation(model_params["activation"])
@@ -194,7 +214,7 @@ for i in range(domain_params['repeat']):
         y_train_derivs_pred = backward(model, model_params["activation"], x_train)
         current_run['train_losses'][model_params['name']] = get_errors(y_train_derivs_true, y_train_derivs_pred)
 
-        x_test = np.column_stack([q_test_grid.flatten(), p_test_grid.flatten()])
+        x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
         y_test_derivs_true = domain_params["dH"](x_test)
         y_test_derivs_pred = backward(model, model_params["activation"], x_test)
         current_run['test_losses'][model_params['name']] = get_errors(y_test_derivs_true, y_test_derivs_pred)
