@@ -87,8 +87,8 @@ domain_params = {
     # Recommended is to have equal number of points to the number of parameters of the network
     # in our case number of params are = 4M + 1
     "train_set_linspaced": args.trainsetlinspaced,
-    "train_random_seed": None, # will be set uniquely for each run
-    "test_random_seed": None,  # will be set uniquely for each run
+    "train_random_seed_start": args.trainrandomseedstart, # will be set uniquely for each run
+    "test_random_seed_start": args.testrandomseedstart,  # will be set uniquely for each run
     "repeat": args.repeat,
 }
 
@@ -99,7 +99,7 @@ elm_params = {
     "parameter_sampler": "random",                  # weight sampling strategy, random for ELM
     "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    "random_seed": None,                            # for reproducability, will be set uniquely for each run
+    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias,               # bias in linear layer
 }
 uswim_params = {
@@ -109,7 +109,8 @@ uswim_params = {
     "parameter_sampler": args.parametersampler,     # weight sampling strategy
     "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    "random_seed": None,#98765                      # for reproducability, will be set uniquely for each run
+    #"random_seed": None,#98765                      # for reproducability, will be set uniquely for each run
+    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias,               # bias in linear layer
 }
 aswim_params = {
@@ -119,7 +120,7 @@ aswim_params = {
     "parameter_sampler": args.parametersampler,     # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights, if set to false, we use approximate values to compute the prob. distribution
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    "random_seed": None,                            # for reproducability, will be set uniquely for each run
+    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias,               # bias in linear layer
 }
 swim_params = {
@@ -129,7 +130,7 @@ swim_params = {
     "parameter_sampler": args.parametersampler,     # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    "random_seed": None,                            # for reproducability, will be set uniquely for each run
+    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias                # bias in linear layer
 }
 
@@ -156,9 +157,11 @@ print()
 # train_random_seed = 3943
 # test_random_seed = 29548
 # model_random_seed = 992472
-train_random_seed = args.trainrandomseedstart
-test_random_seed = args.testrandomseedstart
-model_random_seed = args.modelrandomseedstart
+train_random_seed = domain_params["train_random_seed_start"]
+test_random_seed = domain_params["test_random_seed_start"]
+
+assert elm_params["model_random_seed_start"] == uswim_params["model_random_seed_start"] == aswim_params["model_random_seed_start"] == swim_params["model_random_seed_start"]
+model_random_seed = elm_params["model_random_seed_start"]
 
 # file to save in the end of experiment to document the results
 # each run item will document an iteration, there are in total domain_params["repeat"] iterations
@@ -168,7 +171,6 @@ experiment = {
     "elm_params": elm_params, "uswim_params": uswim_params, "aswim_params": aswim_params, "swim_params": swim_params,
     "runs": []
 }
-
 
 for i in range(domain_params['repeat']):
     print(f'-> iterating {i}')
@@ -180,6 +182,8 @@ for i in range(domain_params['repeat']):
         "train_errors": {}, "train_losses": {}, "test_errors": {}, "test_losses": {},
         "train_times": {},
     }
+
+    # TODO: you can also generate train and test sets here, this would consume more memory but would be a little faster
 
     for model_params in models:
         print(f'---> model {model_params["name"]}')
@@ -250,10 +254,10 @@ for i in range(domain_params['repeat']):
         print(f'forward pass of x_test took {t_end-t_start} seconds')
         current_run['test_errors'][model_params['name']] = get_errors(y_test_true, y_test_pred)
 
-        # update seeds
-        train_random_seed += 1
-        test_random_seed += 1
-        model_random_seed += 1
+    # update seeds
+    train_random_seed += 1
+    test_random_seed += 1
+    model_random_seed += 1
 
     experiment['runs'].append(current_run)
 
