@@ -1,5 +1,5 @@
 from activations import relu, tanh, sigmoid, elu, identity, gaussian, gelu, silu, softplus
-from hamiltonians import single_pendulum, lotka_volterra, double_pendulum
+from hamiltonians import single_pendulum, lotka_volterra, double_pendulum, trigonometric
 from error_functions import mae, mse, l2_error, l2_error_relative
 import numpy as np
 
@@ -42,13 +42,26 @@ def parse_system_name(system_name):
     """
     match system_name:
         case "single_pendulum":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1)
+            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=1)
+        case "single_pendulum_5_freq":
+            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=5)
+        case "single_pendulum_10_freq":
+            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=10)
+        case "single_pendulum_15_freq":
+            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=15)
+        case "single_pendulum_20_freq":
+            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=20)
         case "lotka_volterra":
             system = lotka_volterra.LotkaVolterra()
         case "double_pendulum":
             system = double_pendulum.DoublePendulum()
+        case "trigonometric":
+            system = trigonometric.Trigonometric(freq=1)
+        case "trigonometric_2_freq":
+            system = trigonometric.Trigonometric(freq=2)
         case _:
             raise ValueError("System not defined")
+
 
     return system.H, system.dH
 
