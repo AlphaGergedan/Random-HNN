@@ -44,6 +44,9 @@ parser.add_argument('-M', type=int, help='Number of hidden neurons', required=Tr
 parser.add_argument('-activation', type=str, help='Activation function', required=True)
 parser.add_argument('-parametersampler', type=str, help='Param sampler for SWIM: random, tanh, relu', required=True)
 parser.add_argument('-rcond', type=float, help='How precise the lstsq is', required=True)
+parser.add_argument('-trainrandomseedstart', type=int, help='Start seed for train set generation', required=True)
+parser.add_argument('-testrandomseedstart', type=int, help='Start seed for test set generation', required=True)
+parser.add_argument('-modelrandomseedstart', type=int, help='Start seed for model param generation', required=True)
 parser.add_argument('-includebias', help='Whether to include bias in the network', action='store_true', default=False)
 
 parser.add_argument('output_dir', type=str, help='Output directory for the experiment results')
@@ -150,12 +153,12 @@ print('-> Experiment Start')
 print()
 
 # current seeds, will be incremented on each run for randomness
-train_random_seed = 3943
-test_random_seed = 29548
-model_random_seed = 992472
-# train_random_seed = None
-# test_random_seed = None
-# model_random_seed = None
+# train_random_seed = 3943
+# test_random_seed = 29548
+# model_random_seed = 992472
+train_random_seed = args.trainrandomseedstart
+test_random_seed = args.testrandomseedstart
+model_random_seed = args.modelrandomseedstart
 
 # file to save in the end of experiment to document the results
 # each run item will document an iteration, there are in total domain_params["repeat"] iterations
@@ -165,6 +168,7 @@ experiment = {
     "elm_params": elm_params, "uswim_params": uswim_params, "aswim_params": aswim_params, "swim_params": swim_params,
     "runs": []
 }
+
 
 for i in range(domain_params['repeat']):
     print(f'-> iterating {i}')
@@ -186,6 +190,7 @@ for i in range(domain_params['repeat']):
         _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
         # column stacked (q_i, p_i): (N, 2*dof)
         x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
+        # x_train = x_train.astype(np.float16)
         del q_train_grids, p_train_grids
         y_train_derivs_true = domain_params["dH"](x_train)
         # input is of shape 2*dof, x0 = [[q_1, q_2, .., q_dof, p_1, p_2, .., p_dof]]
@@ -198,11 +203,13 @@ for i in range(domain_params['repeat']):
         y_train_true = None
         if model_params["name"] == "SWIM":
             y_train_true = domain_params["H"](x_train)
+        print('Entering hswim..')
         t_start = time()
         model = hswim(x_train, y_train_derivs_true, x0, f0,
                       model_params["M"], f_activation, df_activation, model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"],
                       y_train_true=y_train_true, random_seed=model_random_seed, include_bias=model_params["include_bias"])
         t_end = time()
+        print(f'hswim took {t_end - t_start} seconds')
 
         # save train time
         current_run["train_times"][model_params['name']] = t_end-t_start
@@ -211,20 +218,36 @@ for i in range(domain_params['repeat']):
         current_run[model_params['name']] = model
 
         # EVALUATE LOSS (error on derivative approximation)
+        print(f'calculating backward pass of x_train..')
+        t_start = time()
         y_train_derivs_pred = backward(model, model_params["activation"], x_train)
+        t_end = time()
+        print(f'backward pass of x_train took {t_end - t_start} seconds')
         current_run['train_losses'][model_params['name']] = get_errors(y_train_derivs_true, y_train_derivs_pred)
 
         x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
         y_test_derivs_true = domain_params["dH"](x_test)
+        print(f'calculating backward pass of x_test..')
+        t_start = time()
         y_test_derivs_pred = backward(model, model_params["activation"], x_test)
+        t_end = time()
+        print(f'backward pass of x_test took {t_end-t_start} seconds')
         current_run['test_losses'][model_params['name']] = get_errors(y_test_derivs_true, y_test_derivs_pred)
 
         y_train_true = domain_params["H"](x_train)
+        print(f'calculating forward pass of x_train..')
+        t_start = time()
         y_train_pred = model.transform(x_train)
+        t_end = time()
+        print(f'forward pass of x_train took {t_end-t_start} seconds')
         current_run['train_errors'][model_params['name']] = get_errors(y_train_true, y_train_pred)
 
         y_test_true = domain_params["H"](x_test)
+        print(f'calculating forward pass of x_test..')
+        t_start = time()
         y_test_pred = model.transform(x_test)
+        t_end = time()
+        print(f'forward pass of x_test took {t_end-t_start} seconds')
         current_run['test_errors'][model_params['name']] = get_errors(y_test_true, y_test_pred)
 
         # update seeds
