@@ -1,7 +1,7 @@
 # define numexpr threads to spawn
 import os
-os.environ['NUMEXPR_MAX_THREADS'] = '16' if not 'NUMEXPR_MAX_THREADS' in os.environ else os.environ['NUMEXPR_MAX_THREADS']
-os.environ['NUMEXPR_NUM_THREADS'] = '16' if not 'NUMEXPR_NUM_THREADS' in os.environ else os.environ['NUMEXPR_NUM_THREADS']
+#os.environ['NUMEXPR_MAX_THREADS'] = '16' if not 'NUMEXPR_MAX_THREADS' in os.environ else os.environ['NUMEXPR_MAX_THREADS']
+#os.environ['NUMEXPR_NUM_THREADS'] = '16' if not 'NUMEXPR_NUM_THREADS' in os.environ else os.environ['NUMEXPR_NUM_THREADS']
 
 from . import relu, tanh, sigmoid, elu, identity, gaussian, gelu, silu, softplus
 
