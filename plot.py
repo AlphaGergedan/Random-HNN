@@ -78,7 +78,13 @@ for f in args.file:
     experiment = load(f)
 
     # will be used in the general plots
-    domain_sizes.append(experiment['domain_params']['q_train'] * experiment['domain_params']['p_train'])
+    domain_size = 1
+    for q in experiment['domain_params']['q_train']:
+        domain_size *= q
+    for p in experiment['domain_params']['p_train']:
+        domain_size *= p
+    domain_sizes.append(domain_size)
+
 
     print(f'-> Experiment {f} is loaded')
     print(f'-> Domain Params are read as:')
@@ -140,7 +146,7 @@ for f in args.file:
 # where on the x-axis we see domain size and on y-axis we see error function
 for dataset in ['train', 'test']:
     for type in ['losses', 'errors']:
-        for stat in ['median', 'mean', 'min']:
+        for stat in ['median', 'mean', 'min', 'max']:
             ys = [
                 results[dataset][type]['ELM'][stat],
                 results[dataset][type]['U-SWIM'][stat],
