@@ -24,6 +24,45 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.ticker import LinearLocator
 
+# PRIVATE
+
+def compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x):
+    """
+    Gives derivatives of the model w.r.t x
+
+    @param hidden_layer : hidden layer of the model
+    @param activation   : string e.g. "relu", "tanh", "sigmoid", "elu", "identity"
+    @param x            : input data (K, D)
+
+    @returns dx         : derivatives of hidden layer output w.r.t x
+    """
+    # get dense and linear layer
+    K,D = x.shape
+    _,M = hidden_layer.weights.shape
+    assert len(x.shape) == 2
+
+    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
+    hidden_layer.activation = df_activation
+    d_activation_wrt_x = hidden_layer.transform(x) # (K,M)
+    hidden_layer.activation = f_activation
+
+    # the following stacks the derivatives in the matrix A for the linear system
+    phi_1_derivs = np.empty((K*D, M))
+    for i in range(K):
+        # phi_1_derivs[i * D: (i+1)*D, :] = d_activation_wrt_x[i,:] * hidden_layer.weights
+        phi_1_derivs[i*D:(i+1)*D, :] = d_activation_wrt_x[i, :] * hidden_layer.weights
+
+    # alternative implementations
+
+    # phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
+
+    # perform element-wise multiplication of the arrays
+    # phi_1_derivs = d_activation_wrt_x[:, np.newaxis, :] * hidden_layer.weights[np.newaxis, :, :]
+
+    return phi_1_derivs
+
+
+
 def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond, include_bias=True):
     """
     Fits the last layer of the model by solving least squares,
@@ -39,28 +78,29 @@ def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rc
     @returns                   : solved x (weights of the final linear layer)
     """
     # set up matrix A with shape (ND,M)
-    A =  np.vstack([
-        phi_1_derivs,
-        phi_1_of_x0
-    ])
+    A =  np.concatenate(( phi_1_derivs, phi_1_of_x0 ), axis=0)
 
     # set up b (ND+1)
-    b = np.concatenate([
-        y_train_derivs_true.flatten(), # [[x11,x12],[x21,x22],[x31,x32]...[xK1,xK2]] e.g. for D=2
-        f0_true.flatten()
-    ])
-    # print(f'-> first 5 values of b: {b[0:5]}') # FIXME: remove debug
+    b = np.concatenate((
+        y_train_derivs_true.ravel(), # [[x11,x12],[x21,x22],[x31,x32]...[xK1,xK2]] e.g. for D=2
+        f0_true.ravel()
+    ))
 
     if include_bias:
         # add the bias term to the weights (should be 0 for derivatives to not take it into account, but for phi_1_of_x0 it counts)
-        bias_term = np.concatenate([np.zeros(phi_1_derivs.shape[0]), np.ones(phi_1_of_x0.shape[0])])
+        # bias_term = np.concatenate([np.zeros(phi_1_derivs.shape[0]), np.ones(phi_1_of_x0.shape[0])])
+
+        bias_term = np.zeros(A.shape[0])
+        bias_term[-phi_1_of_x0.shape[0]:] = 1
+
         # (ND + 1, M + 1)
-        A = np.column_stack([A, bias_term])
+        A = np.column_stack((A, bias_term))
 
     # solve the linear equations (if bias is included then shape is (M+1,))
     c = np.linalg.lstsq(A, b, rcond=rcond)[0]
-    c = c.reshape(-1, 1) # final shape (M+1, 1) == [weights, bias] of shapes (M,1) and (1,1)
-    return c
+    return c.reshape(-1, 1) # final shape (M+1, 1) == [weights, bias] of shapes (M,1) and (1,1)
+
+# PUBLIC
 
 def hswim(x_train, y_train_derivs_true, x0, f0_true,
           n_hidden, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond,
@@ -113,20 +153,20 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     hidden_layer = model.steps[0][1]
     linear_layer = model.steps[1][1]
 
-    model.fit(x_train, y_train_true)
+    # sample hidden layer weights
+    hidden_layer.fit(x_train, y_train_true)
 
-    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
-    hidden_layer.activation = df_activation
-    d_activation_wrt_x = hidden_layer.transform(x_train) # (K,M)
-    # the following stacks the derivatives in the matrix A for the linear system
-    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
+    phi_1_derivs = compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x_train)
 
     # evaluate at x0
-    hidden_layer.activation = f_activation
     phi_1_of_x0 = hidden_layer.transform(x0)
 
     # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
+    print("fitting linear layer inside hswim..")
+    t_start = time()
     c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, include_bias=include_bias).reshape(-1,1)
+    t_end = time()
+    print(f"fitting linear layer inside hswim took {t_end-t_start} seconds")
 
     if include_bias:
         linear_layer.weights = c[:-1].reshape((-1,1))
@@ -137,7 +177,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
 
     # set the info for linear layer, this will be set only once
     linear_layer.layer_width = linear_layer.weights.shape[1]
-    linear_layer.n_parameters = np.prod(linear_layer.weights.shape) + np.prod(linear_layer.biases.shape)
+    linear_layer.n_parameters = linear_layer.weights.size + linear_layer.biases.size
 
     # return in case of ELM or SWIM, A-SWIM (second step)
     if sample_uniformly or y_train_true is not None:
@@ -150,6 +190,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     return hswim(x_train, y_train_derivs_true, x0, f0_true,
                  n_hidden, f_activation, df_activation, parameter_sampler, False, rcond,
                  y_train_true=y_train_pred, random_seed=random_seed, include_bias=True)
+
 
 def backward(model, activation, x):
     """
@@ -164,21 +205,24 @@ def backward(model, activation, x):
     # get dense and linear layer
     hidden_layer = model.steps[0][1]
     linear_layer = model.steps[1][1]
+
     f_activation, df_activation = parse_activation(activation)
-    assert len(x.shape) == 2
 
-    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
-    hidden_layer.activation = df_activation
-    d_activation_wrt_x = hidden_layer.transform(x) # (K,M)
-    hidden_layer.activation = f_activation
-
-    # the following stacks the derivatives in the matrix A for the linear system
-    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
+    phi_1_derivs = compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x)
 
     # linear layer
     phi_2_derivs = phi_1_derivs @ linear_layer.weights # avoid bias! it has no effect on derivative w.r.t x
 
     return phi_2_derivs.reshape(x.shape) # (K, D)
+
+
+
+
+
+
+
+
+
 
 ############### CLEAN THE CODE BELOW
 
