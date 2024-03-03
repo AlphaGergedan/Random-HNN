@@ -38,21 +38,68 @@ for f in args.file:
     # }
     current_experiment = load(f)
 
+    print(f"keys of the current experiment is {current_experiment.keys()}")
+    print(f"DOMAIN PARAMS: {current_experiment["domain_params"]}")
+
     # if this is the first iterated file then set it as the base
     if combined_experiments["domain_params"] is None:
         combined_experiments = current_experiment
+        print(f"Initial set of domain params as {combined_experiments['domain_params']}")
+        print(f"Initial set of elm params as {combined_experiments['elm_params']}")
+        print(f"Initial set of uswim params as {combined_experiments['uswim_params']}")
+        print(f"Initial set of aswim params as {combined_experiments['aswim_params']}")
+        print(f"Initial set of swim params as {combined_experiments['swim_params']}")
+        print(f"Initial set of runs of length {len(combined_experiments['runs'])}")
         continue
 
-    # assert domain and model params are same
-    assert current_experiment["domain_params"] == combined_experiments["domain_params"]
-    assert current_experiment["elm_params"] == combined_experiments["elm_params"]
-    assert current_experiment["uswim_params"] == combined_experiments["uswim_params"]
-    assert current_experiment["aswim_params"] == combined_experiments["aswim_params"]
-    assert current_experiment["swim_params"] == combined_experiments["swim_params"]
+    # assert domain params
+    for key in combined_experiments["domain_params"].keys():
+        if key != "H" and key != "dH" and key != "train_random_seed_start" and key != "test_random_seed_start" and key != "repeat":
+            assert combined_experiments["domain_params"][key] == current_experiment["domain_params"][key]
+
+    # assert model params
+    for key in combined_experiments["elm_params"].keys():
+        if key != "model_random_seed_start":
+            print(f"comparing key {key} in elm param")
+            assert combined_experiments["elm_params"][key] == current_experiment["elm_params"][key]
+    for key in combined_experiments["uswim_params"].keys():
+        if key != "model_random_seed_start":
+            assert combined_experiments["uswim_params"][key] == current_experiment["uswim_params"][key]
+    for key in combined_experiments["aswim_params"].keys():
+        if key != "model_random_seed_start":
+            assert combined_experiments["aswim_params"][key] == current_experiment["aswim_params"][key]
+    for key in combined_experiments["swim_params"].keys():
+        if key != "model_random_seed_start":
+            assert combined_experiments["swim_params"][key] == current_experiment["swim_params"][key]
+
+    # current_run = {
+        # # trained models will be saved too
+        # "train_random_seed": train_random_seed, "test_random_seed": test_random_seed, "model_random_seed": model_random_seed,
+        # "train_errors": {}, "train_losses": {}, "test_errors": {}, "test_losses": {},
+        # "train_times": {},
+    # }
+    print(f"Combining runs of length {len(current_experiment['runs'])} into the combined runs of length {len(combined_experiments['runs'])}")
 
     # append the runs
     combined_experiments["runs"] += current_experiment["runs"]
 
+print(f"Final result run length: {len(combined_experiments['runs'])}")
+
+combined_experiments["domain_params"]["repeat"] = len(combined_experiments["runs"])
+
+# TODO assert random seeds are being incremented in each run
+# train_random_seeds = combined_experiments["runs"][0]["train_random_seed"]
+train_random_seeds = [ current_run["train_random_seed"] for current_run in combined_experiments["runs"] ]
+test_random_seeds = [ current_run["test_random_seed"] for current_run in combined_experiments["runs"] ]
+model_random_seeds = [ current_run["model_random_seed"] for current_run in combined_experiments["runs"] ]
+
+print()
+print(f"train_random_seeds: {train_random_seeds}")
+print()
+print(f"test_random_seeds: {test_random_seeds}")
+print()
+print(f"model_random_seeds: {model_random_seeds}")
+print()
 
 # save the aggregated results
 dump(combined_experiments, args.output_file)
