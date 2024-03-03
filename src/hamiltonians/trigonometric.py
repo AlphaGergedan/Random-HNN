@@ -1,5 +1,6 @@
 import numpy as np
 
+# khoo-2023
 class Trigonometric():
     """
     1 dof
@@ -29,7 +30,7 @@ class Trigonometric():
         # x is same as above
         # output is array of values [y_1, y_2, ...] where y_i = (dH/dq, dH/dp)
         (q,p) = x[:,0], x[:,1]
-        dq = self.freq * 2 * np.sin(q) * np.cos(q)
-        dp = self.freq * -2 * np.cos(p) * np.sin(p)
+        dq = self.freq * 2 * np.sin(self.freq * q) * np.cos(self.freq * q)
+        dp = self.freq * -2 * np.cos(self.freq * p) * np.sin(self.freq * p)
         df = np.array([dq, dp]).T
         return df.reshape(-1, 2)
