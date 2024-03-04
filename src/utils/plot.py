@@ -111,7 +111,7 @@ def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False
 
     if rotate_xticks:
         # Rotate x-ticks by 45 degrees and align them to the right
-        plt.xticks(xticks, rotation=30, ha='right', fontsize=7)
+        plt.xticks(xticks, rotation=60, ha='right', fontsize=6)
     else:
         plt.xticks(xticks)
 
@@ -122,6 +122,7 @@ def plot_comparison(x, ys, xticks, xlim, xlabel, ylabel, legends, logscale=False
 
     plt.grid()
     plt.legend(legends, fontsize='medium', shadow=True, loc='best')
+    plt.tight_layout()
     plt.savefig(save)
     plt.close()
 
