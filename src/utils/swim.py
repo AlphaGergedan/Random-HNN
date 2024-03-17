@@ -50,9 +50,10 @@ def compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x):
     phi_1_derivs = np.empty((K*D, M))
     for i in range(K):
         # phi_1_derivs[i * D: (i+1)*D, :] = d_activation_wrt_x[i,:] * hidden_layer.weights
-        phi_1_derivs[i*D:(i+1)*D, :] = d_activation_wrt_x[i, :] * hidden_layer.weights
+        phi_1_derivs[i*D:(i+1)*D, :] = d_activation_wrt_x[i, :] * hidden_layer.weights # (M) x (D,M)
 
     # alternative implementations
+    # d_activation_wrt_x * hidden_layer.weights.T == (K,M)x(M,D) = (K,D)
 
     # phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
 
@@ -202,9 +203,13 @@ def backward(model, activation, x):
 
     @returns dx         : derivatives of NN w.r.t x
     """
-    # get dense and linear layer
+    # get dense layers and linear layer
     hidden_layer = model.steps[0][1]
     linear_layer = model.steps[1][1]
+
+    # TODO
+    # hidden_layers = [hidden_layer for _, hidden_layer in model.steps[:-1]]
+    # _, linear_layer = model.steps[1][1]
 
     f_activation, df_activation = parse_activation(activation)
 
@@ -226,51 +231,25 @@ def backward(model, activation, x):
 
 ############### CLEAN THE CODE BELOW
 
-def swim(x_train, y_train, y_train_derivs_true, x0_true, f0_true,
-          n_hidden, f_activation, df_activation, parameter_sampler, rcond,
-          random_seed=1, include_bias=True,):
+def swim(x_train, y_train_true, n_hidden_layers, n_neurons, f_activation,
+         parameter_sampler, sample_uniformly, rcond, random_seed=1):
     """
-    Hamiltonian SWIM Implementation
+    SWIM Implementation
     """
     K,D = x_train.shape
-    assert x_train.shape == y_train_derivs_true.shape # (K,D)
+    assert y_train_true.shape == (K,1)
+    assert len(n_neurons) == n_hidden_layers
+    assert y_train_true is not None
 
-    model_ansatz = Pipeline([
-        ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
-        ("linear", Linear(regularization_scale=rcond))
-    ])
+    steps = []
+    for k_layer in range(n_hidden_layers):
+        # random_seed is set as 'random_seed + k_layer * 12345'
+        steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=sample_uniformly, random_seed=random_seed + k_layer * 12345)))
+    steps.append(("linear", Linear(regularization_scale=rcond)))
+    model = Pipeline(steps=steps, verbose=False)
+    model.fit(x_train, y_train_true)
 
-    hidden_layer = model_ansatz.steps[0][1]
-    linear_layer = model_ansatz.steps[1][1]
-
-    model_ansatz.fit(x_train, y_train)
-
-    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
-    hidden_layer.activation = df_activation
-    d_activation_wrt_x = hidden_layer.transform(x_train) # (K,M)
-    # the following stacks the derivatives in the matrix A for the linear system
-    phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(K)]) # (KD,M)
-
-    # evaluate at x0
-    hidden_layer.activation = f_activation
-    x0_true = x0_true.reshape(1, D)
-    phi_1_of_x0 = hidden_layer.transform(x0_true)
-
-    # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
-    c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, include_bias=include_bias).reshape(-1,1)
-
-    if include_bias:
-        linear_layer.weights = c[:-1].reshape((-1,1))
-        linear_layer.biases = c[-1].reshape((1,1))
-    else:
-        linear_layer.weights = c.reshape((-1,1))
-        linear_layer.biases = np.zeros((1,1))
-
-    # set the info for linear layer, this will be set only once
-    linear_layer.layer_width = linear_layer.weights.shape[1]
-    linear_layer.n_parameters = np.prod(linear_layer.weights.shape) + np.prod(linear_layer.biases.shape)
-
-    return model_ansatz
+    return model
 
 def approximate_hamiltonian(
         # dataset training
