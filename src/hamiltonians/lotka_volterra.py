@@ -9,13 +9,30 @@ class LotkaVolterra():
 
     """
 
+    def __init__(self, alpha=-2, beta=-1, gamma=-1, delta=-1):
+        """
+        Choose these parameters wisely, they change the phase plot.
+        For the classical rabbit and fox model you can set
+        alpha=1.1, beta=0.4, gamma=0.1, delta=0.4
+
+        @param alpha: prey's: the maximum prey per capita growth rate
+        @param beta : prey's: the effect of the presence of predators on the prey death rate
+        @param gamma: predator's: predator's per capita death rate
+        @param delta: predator's: the effect of the presence of prey on the predator growth rate
+        """
+        self.delta = delta
+        self.gamma = gamma
+        self.beta = beta
+        self.alpha = alpha
+
     def H(self, x):
         """
         Hamiltonian system with 1 degree of freedom, which means input is (q,p)
         H(q,p) = p - e^p + 2q - e^q
         """
         (q,p) = x[:,0], x[:,1]
-        f = p - np.e**p + 2*q - np.e**q
+        # f = delta*e^p - gamma*p + beta*e^q - alpha*q
+        f = self.delta * np.e**p - self.gamma * p + self.beta * np.e**q - self.alpha * q
         return f.reshape(-1, 1)
 
     def dH(self, x):
@@ -23,7 +40,9 @@ class LotkaVolterra():
         Implementaion of the gradient of the Hamiltonian
         """
         (q,p) = x[:,0], x[:,1]
-        dq = 2 - np.e**q
-        dp = 1 - np.e**p
+        dq = self.beta * np.e**q - self.alpha
+        # dq = -alpha + beta*e^q
+        dp = self.delta * np.e**p - self.gamma
+        # dp = -gamma + delta*e^p
         df = np.array([dq, dp]).T
         return df.reshape(-1, 2)
