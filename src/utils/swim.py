@@ -26,33 +26,56 @@ from matplotlib.ticker import LinearLocator
 
 # PRIVATE
 
-def compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x):
+def compute_phi_1_derivs(model, f_activation, df_activation, x):
     """
     Gives derivatives of the model w.r.t x
 
-    @param hidden_layer : hidden layer of the model
+    @param model        : sklearn Pipeline with hidden layers and last linear layer
     @param activation   : string e.g. "relu", "tanh", "sigmoid", "elu", "identity"
     @param x            : input data (K, D)
 
     @returns dx         : derivatives of hidden layer output w.r.t x
     """
     # get dense and linear layer
-    K,D = x.shape
-    _,M = hidden_layer.weights.shape
     assert len(x.shape) == 2
+    K,D = x.shape
+    first_hidden_layer = model[0]
+    _, N_1 = first_hidden_layer.weights.shape
 
-    # calculate dense layer derivative w.r.t. x => of shape (KD,M)
-    hidden_layer.activation = df_activation
-    d_activation_wrt_x = hidden_layer.transform(x) # (K,M)
-    hidden_layer.activation = f_activation
+    # calculate first dense layer derivative w.r.t. x => of shape (KD,M) where M is the last hidden layer size
+    first_hidden_layer.activation = df_activation
+    d_activation_wrt_x = first_hidden_layer.transform(x) # (K,N_1)
+    first_hidden_layer.activation = f_activation
 
     # the following stacks the derivatives in the matrix A for the linear system
-    phi_1_derivs = np.empty((K*D, M))
+    phi_derivs = np.empty((K*D, N_1))
     for i in range(K):
         # phi_1_derivs[i * D: (i+1)*D, :] = d_activation_wrt_x[i,:] * hidden_layer.weights
-        phi_1_derivs[i*D:(i+1)*D, :] = d_activation_wrt_x[i, :] * hidden_layer.weights # (M) x (D,M)
+        phi_derivs[i*D:(i+1)*D, :] = d_activation_wrt_x[i, :] * first_hidden_layer.weights # (N_1) x (D,N_1)
+    phi_derivs = phi_derivs.reshape((K,D,N_1))
 
-    # alternative implementations
+    # aggregate other layers
+    current_hidden_layer = 2
+    for hidden_layer in model[1:-1]:
+        input_size, output_size = hidden_layer.weights.shape
+
+        hidden_layer.activation = df_activation
+        d_activation_wrt_x = model[:current_hidden_layer].transform(x) # (K, output_size)
+        hidden_layer.activation = f_activation
+
+        current_phi_1_derivs = np.empty((K*input_size, output_size))
+        print(f"computing derivs for layer {current_hidden_layer}")
+        for i in range(K):
+            current_phi_1_derivs[i*input_size:(i+1)*input_size, :] = d_activation_wrt_x[i, :] * hidden_layer.weights # (hidden_size) x (D,hidden_size)
+        current_phi_1_derivs = current_phi_1_derivs.reshape((K, input_size, output_size))
+
+        # aggregate the derivatives: (K, D, N_old) @ (K, N_old, N_new) => (K, D, N_new)
+
+        print(f"aggregating result..")
+        phi_derivs = phi_derivs @ current_phi_1_derivs
+
+        current_hidden_layer += 1
+
     # d_activation_wrt_x * hidden_layer.weights.T == (K,M)x(M,D) = (K,D)
 
     # phi_1_derivs = np.row_stack([(d_activation_wrt_x[i,:] * hidden_layer.weights) for i in range(d_activation_wrt_x.shape[0])]) # (KD,M)
@@ -60,7 +83,7 @@ def compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x):
     # perform element-wise multiplication of the arrays
     # phi_1_derivs = d_activation_wrt_x[:, np.newaxis, :] * hidden_layer.weights[np.newaxis, :, :]
 
-    return phi_1_derivs
+    return phi_derivs.reshape(K*D, -1)
 
 
 
@@ -104,7 +127,7 @@ def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rc
 # PUBLIC
 
 def hswim(x_train, y_train_derivs_true, x0, f0_true,
-          n_hidden, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond,
+          n_hidden_layers, n_neurons, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond,
           y_train_true=None, random_seed=1, include_bias=True):
     """
     Hamiltonian SWIM Implementation
@@ -138,29 +161,31 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     assert f0_true.shape == (1,1)
     assert y_train_true is None or y_train_true.shape == (K,1)
 
+    steps = []
     if y_train_true is None:
-        # build the pipeline for having dense + linear layer set up, in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
-        model = Pipeline([
-            ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=True, random_seed=random_seed)),
-            ("linear", Linear(regularization_scale=rcond))
-        ])
+        # in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
+        for k_layer in range(n_hidden_layers):
+            # random_seed is set as 'random_seed + k_layer * 12345'
+            steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation,
+                                                     parameter_sampler=parameter_sampler, sample_uniformly=True, random_seed=random_seed + k_layer * 12345)))
     else:
-        # if y_train_true is given, use usual SWIM
-        model = Pipeline([
-            ("dense", Dense(layer_width=n_hidden, activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed)),
-            ("linear", Linear(regularization_scale=rcond))
-        ])
+        for k_layer in range(n_hidden_layers):
+            # random_seed is set as 'random_seed + k_layer * 12345'
+            steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation,
+                                                     parameter_sampler=parameter_sampler, sample_uniformly=False, random_seed=random_seed + k_layer * 12345)))
 
-    hidden_layer = model.steps[0][1]
-    linear_layer = model.steps[1][1]
+    # add the last linear layer and build the model
+    steps.append(("linear", Linear(regularization_scale=rcond)))
+    model = Pipeline(steps)
 
     # sample hidden layer weights
-    hidden_layer.fit(x_train, y_train_true)
+    print(f"model has size {len(model)}")
+    model[:-1].fit(x_train, y_train_true)
 
-    phi_1_derivs = compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x_train)
+    phi_1_derivs = compute_phi_1_derivs(model, f_activation, df_activation, x_train)
 
-    # evaluate at x0
-    phi_1_of_x0 = hidden_layer.transform(x0)
+    # evaluate at x0, transform till the last layer (including all hidden layers, not including the linear layer)
+    phi_1_of_x0 = model[:-1].transform(x0)
 
     # solve the linear layer weights using the linear system (here we incorporate Hamiltonian equations into the fitting)
     print("fitting linear layer inside hswim..")
@@ -168,6 +193,8 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     c = fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rcond=rcond, include_bias=include_bias).reshape(-1,1)
     t_end = time()
     print(f"fitting linear layer inside hswim took {t_end-t_start} seconds")
+
+    _, linear_layer = model.steps[-1]
 
     if include_bias:
         linear_layer.weights = c[:-1].reshape((-1,1))
@@ -189,7 +216,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
 
     # recursive call with the y_train_pred values
     return hswim(x_train, y_train_derivs_true, x0, f0_true,
-                 n_hidden, f_activation, df_activation, parameter_sampler, False, rcond,
+                 n_hidden_layers, n_neurons, f_activation, df_activation, parameter_sampler, False, rcond,
                  y_train_true=y_train_pred, random_seed=random_seed, include_bias=True)
 
 
@@ -204,8 +231,7 @@ def backward(model, activation, x):
     @returns dx         : derivatives of NN w.r.t x
     """
     # get dense layers and linear layer
-    hidden_layer = model.steps[0][1]
-    linear_layer = model.steps[1][1]
+    _, linear_layer = model.steps[-1]
 
     # TODO
     # hidden_layers = [hidden_layer for _, hidden_layer in model.steps[:-1]]
@@ -213,7 +239,7 @@ def backward(model, activation, x):
 
     f_activation, df_activation = parse_activation(activation)
 
-    phi_1_derivs = compute_phi_1_derivs(hidden_layer, f_activation, df_activation, x)
+    phi_1_derivs = compute_phi_1_derivs(model, f_activation, df_activation, x)
 
     # linear layer
     phi_2_derivs = phi_1_derivs @ linear_layer.weights # avoid bias! it has no effect on derivative w.r.t x
