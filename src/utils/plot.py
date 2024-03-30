@@ -253,7 +253,50 @@ def plot_ground_truth_trajectory_4d(t_span, t_eval, traj_true, save='', verbose=
     plt.tight_layout()
     # if verbose
     plt.show() if verbose else None
-    fig.savefig(save) if save else None
+    fig.savefig('timeplots_' + save) if save else None
+    plt.clf()
+
+    # poincares
+    fig = plt.figure(figsize=[12,3], dpi=100)
+    # q1 against p1
+    plt.subplot(1,4,1)
+    plt.plot(traj_true[:,0], traj_true[:,2], c=COLOR_TRUTH, label='Ground truth', **args)
+    plt.xlabel(r'$q_1$')
+    plt.ylabel(r'$p_1$')
+    #plt.legend(['Ground truth'], shadow=True)
+    # plt.xlim(t_span)
+    plt.grid()
+    plt.tight_layout()
+    # q2 against p2
+    plt.subplot(1,4,2)
+    plt.plot(traj_true[:,1], traj_true[:,3], c=COLOR_TRUTH, label='Ground truth', **args)
+    plt.xlabel(r'$q_2$')
+    plt.ylabel(r'$p_2$')
+    #plt.legend(['Ground truth'], shadow=True)
+    # plt.xlim(t_span)
+    plt.grid()
+    plt.tight_layout()
+    # q1 against q2
+    plt.subplot(1,4,3)
+    plt.plot(traj_true[:,0], traj_true[:,1], c=COLOR_TRUTH, label='Ground truth', **args)
+    plt.xlabel(r'$q_1$')
+    plt.ylabel(r'$q_2$')
+    #plt.legend(['Ground truth'], shadow=True)
+    # plt.xlim(t_span)
+    plt.grid()
+    plt.tight_layout()
+    # p1 against p2
+    plt.subplot(1,4,4)
+    plt.plot(traj_true[:,2], traj_true[:,3], c=COLOR_TRUTH, label='Ground truth', **args)
+    plt.xlabel(r'$p_1$')
+    plt.ylabel(r'$p_2$')
+    #plt.legend(['Ground truth'], shadow=True)
+    # plt.xlim(t_span)
+    plt.grid()
+    plt.tight_layout()
+    # if verbose
+    plt.show() if verbose else None
+    fig.savefig('poincares_' + save) if save else None
     plt.clf()
 
 def plot_ground_truth_trajectory_2d(t_span, t_eval, traj_true, save='', verbose=False, **args):
