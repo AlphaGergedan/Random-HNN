@@ -75,6 +75,7 @@ def compute_phi_1_derivs(model, f_activation, df_activation, x):
         phi_derivs = phi_derivs @ current_phi_1_derivs
 
         current_hidden_layer += 1
+        raise RuntimeError('Support for more layers is not tested yet. If you want to use it anyways then remove this line.')
 
     # d_activation_wrt_x * hidden_layer.weights.T == (K,M)x(M,D) = (K,D)
 
