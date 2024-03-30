@@ -216,15 +216,7 @@ if args.solvetrue:
             # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
             train_rng = np.random.default_rng(train_random_seed)
             test_rng = np.random.default_rng(test_random_seed)
-            _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
-
-            # save test grids to load later when evaluating the model
-            t_start = time()
-            dump(q_test_grids, os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
-            dump(p_test_grids, os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
-            t_end = time()
-            print(f"Dumping test grids took {t_end-t_start} seconds.")
-            del q_test_grids, p_test_grids
+            _, _, q_train_grids, p_train_grids, _, _, _, _ = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
 
             # column stacked (q_i, p_i): (N, 2*dof)
             x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
@@ -255,10 +247,10 @@ if args.solvetrue:
             print(f'forward pass of x_train took {t_end-t_start} seconds')
             current_run['train_function_errors'][model_params['name']] = get_errors(y_train_true, y_train_pred)
 
-            # load q,p test grids
-            q_test_grids = load(os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
-            p_test_grids = load(os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
-
+            # to save some memory we sample again for the test set using the same seeds
+            train_rng = np.random.default_rng(train_random_seed)
+            test_rng = np.random.default_rng(test_random_seed)
+            _, _, _, _, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
             x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
             del q_test_grids, p_test_grids
 
@@ -308,56 +300,63 @@ for i in range(domain_params['repeat']):
     }
 
     print(f"-> Generating train and test data for the current run {i}")
-    # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
-    train_rng = np.random.default_rng(train_random_seed)
-    test_rng = np.random.default_rng(test_random_seed)
-    _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
-
-    # column stacked (q_i, p_i): (N, 2*dof)
-    x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
-    del q_train_grids, p_train_grids
-
-    # you can specify dtype=np.float16 for half precision: x_train = x_train.astype(np.float16)
-    Path(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), x_train)
-
-    y_train_derivs_true = domain_params["dH"](x_train)
-    Path(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_train_derivs_true)
-    del y_train_derivs_true
-
-    y_train_true = domain_params["H"](x_train)
-    Path(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_train_true)
-    del y_train_true
-
-    del x_train
-
-    x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
-    del q_test_grids, p_test_grids
-
-    # you can specify dtype=np.float16 for half precision: x_test = x_test.astype(np.float16)
-    Path(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), x_test)
-
-    y_test_derivs_true = domain_params["dH"](x_test)
-    Path(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_test_derivs_true)
-    del y_test_derivs_true
-
-    y_test_true = domain_params["H"](x_test)
-    Path(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
-    np.save(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_test_true)
-    del y_test_true
-
-    del x_test
+    # # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
+    # train_rng = np.random.default_rng(train_random_seed)
+    # test_rng = np.random.default_rng(test_random_seed)
+    # _, _, q_train_grids, p_train_grids, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
+#
+    # # column stacked (q_i, p_i): (N, 2*dof)
+    # x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
+    # del q_train_grids, p_train_grids
+#
+    # # you can specify dtype=np.float16 for half precision: x_train = x_train.astype(np.float16)
+    # Path(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), x_train)
+#
+    # y_train_derivs_true = domain_params["dH"](x_train)
+    # Path(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_train_derivs_true)
+    # del y_train_derivs_true
+#
+    # y_train_true = domain_params["H"](x_train)
+    # Path(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_train_true)
+    # del y_train_true
+#
+    # del x_train
+#
+    # x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
+    # del q_test_grids, p_test_grids
+#
+    # # you can specify dtype=np.float16 for half precision: x_test = x_test.astype(np.float16)
+    # Path(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), x_test)
+#
+    # y_test_derivs_true = domain_params["dH"](x_test)
+    # Path(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_test_derivs_true)
+    # del y_test_derivs_true
+#
+    # y_test_true = domain_params["H"](x_test)
+    # Path(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')).touch()
+    # np.save(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'), y_test_true)
+    # del y_test_true
+#
+    # del x_test
 
     for model_params in models:
         print(f'---> model {model_params["name"]}')
+        # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
+        train_rng = np.random.default_rng(train_random_seed)
+        test_rng = np.random.default_rng(test_random_seed)
+        _, _, q_train_grids, p_train_grids, _, _, _, _ = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
 
         # load x_test and y_train_derivs_true
-        x_train = np.load(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-        y_train_derivs_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        # x_train = np.load(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        # column stacked (q_i, p_i): (N, 2*dof)
+        x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
+        y_train_derivs_true = domain_params["dH"](x_train)
+        # y_train_derivs_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
 
         # input is of shape 2*dof, x0 = [[q_1, q_2, .., q_dof, p_1, p_2, .., p_dof]]
         x0 = np.zeros(2 * domain_params["dof"]).reshape(1, -1)
@@ -368,7 +367,8 @@ for i in range(domain_params['repeat']):
         # TRAIN MODEL
         y_train_true = None
         if model_params["name"] == "SWIM":
-            y_train_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+            # y_train_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+            y_train_true = domain_params["H"](x_train)
         print('Entering hswim..')
         t_start = time()
         # TODO specify layers too
@@ -398,15 +398,22 @@ for i in range(domain_params['repeat']):
         y_train_pred = model.transform(x_train)
         t_end = time()
         print(f'forward pass of x_train took {t_end-t_start} seconds')
-        del x_train
 
         if y_train_true is None:
-            y_train_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+            # y_train_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+            y_train_true = domain_params["H"](x_train)
+        del x_train
+
         current_run['train_function_errors'][model_params['name']] = get_errors(y_train_true, y_train_pred)
         del y_train_true, y_train_pred
 
         # load q,p test grids, TODO load x_test
-        x_test = np.load(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        # TRAIN TEST DATA: first we train the model with the train data (X, dX, x0, f0) then evaluate
+        train_rng = np.random.default_rng(train_random_seed)
+        test_rng = np.random.default_rng(test_random_seed)
+        _, _, _, _, _, _, q_test_grids, p_test_grids = generate_train_test_grid(domain_params["q_train"], domain_params["p_train"], domain_params["q_train_lim"], domain_params["p_train_lim"], domain_params["q_test"], domain_params["p_test"], domain_params["q_test_lim"], domain_params["p_test_lim"], test_rng=test_rng, dof=domain_params["dof"], linspace=domain_params["train_set_linspaced"], train_rng=train_rng)
+        x_test = np.column_stack([ q_test_grid.flatten() for q_test_grid in q_test_grids ] + [ p_test_grid.flatten() for p_test_grid in p_test_grids ])
+        # x_test = np.load(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
 
         print(f'calculating backward pass of x_test..')
         t_start = time()
@@ -414,7 +421,8 @@ for i in range(domain_params['repeat']):
         t_end = time()
         print(f'backward pass of x_test took {t_end-t_start} seconds')
 
-        y_test_derivs_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        # y_test_derivs_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        y_test_derivs_true = domain_params["dH"](x_test)
         current_run['test_gradient_errors'][model_params['name']] = get_errors(y_test_derivs_true, y_test_derivs_pred)
         del y_test_derivs_true, y_test_derivs_pred
 
@@ -423,45 +431,45 @@ for i in range(domain_params['repeat']):
         y_test_pred = model.transform(x_test)
         t_end = time()
         print(f'forward pass of x_test took {t_end-t_start} seconds')
-        del x_test
 
-        y_test_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        # y_test_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+        y_test_true = domain_params["H"](x_test)
         current_run['test_function_errors'][model_params['name']] = get_errors(y_test_true, y_test_pred)
-        del y_test_true, y_test_pred
+        del y_test_true, y_test_pred, x_test
 
     # clear the saved train and test data
 
     # train
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
-
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
-
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
-
-    # test
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
-
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
-
-    if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
-        os.remove(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
-    else:
-        raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+#
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+#
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TRAIN_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+#
+    # # test
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_X_TEST_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+#
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TEST_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
+#
+    # if os.path.exists(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')):
+        # os.remove(os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
+    # else:
+        # raise RuntimeError(f"File {os.path.join(args.output_dir, f'TMP_Y_TEST_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy')} does not exist")
 
     # update seeds
     train_random_seed += 1
@@ -474,12 +482,20 @@ print('-----------------------------')
 print('-> Runs finished')
 
 # remove tmp files
-if os.path.exists(os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl')):
-    os.remove(os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
-if os.path.exists(os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl')):
-    os.remove(os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
+# if os.path.exists(os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl')):
+    # os.remove(os.path.join(args.output_dir, f'TMP_Q_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
+# if os.path.exists(os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl')):
+    # os.remove(os.path.join(args.output_dir, f'TMP_P_TEST_GRIDS_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
 
-dump(experiment, os.path.join(args.output_dir, f'{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
+# append the total num of points to the name of the file
+total_q = 1
+total_p = 1
+for qtrain in args.qtrain:
+    total_q *= qtrain
+for ptrain in args.ptrain:
+    total_p *= ptrain
+
+dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
 print('-> Saved experiment results under: ' + args.output_dir)
 
 print()
