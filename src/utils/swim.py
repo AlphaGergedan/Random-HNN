@@ -128,7 +128,7 @@ def fit_linear_layer(phi_1_derivs, phi_1_of_x0, y_train_derivs_true, f0_true, rc
 # PUBLIC
 
 def hswim(x_train, y_train_derivs_true, x0, f0_true,
-          n_hidden_layers, n_neurons, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond,
+          n_hidden_layers, n_neurons, f_activation, df_activation, parameter_sampler, sample_uniformly, rcond, elm_bias_start, elm_bias_end,
           y_train_true=None, random_seed=1, include_bias=True):
     """
     Hamiltonian SWIM Implementation
@@ -167,7 +167,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
         # in the first approximation we always use uniform data point picking probability so sample_uniformly is set to True
         for k_layer in range(n_hidden_layers):
             # random_seed is set as 'random_seed + k_layer * 12345'
-            steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation,
+            steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation, elm_bias_start=elm_bias_start, elm_bias_end=elm_bias_end,
                                                      parameter_sampler=parameter_sampler, sample_uniformly=True, random_seed=random_seed + k_layer * 12345)))
     else:
         for k_layer in range(n_hidden_layers):
@@ -218,6 +218,7 @@ def hswim(x_train, y_train_derivs_true, x0, f0_true,
     # recursive call with the y_train_pred values
     return hswim(x_train, y_train_derivs_true, x0, f0_true,
                  n_hidden_layers, n_neurons, f_activation, df_activation, parameter_sampler, False, rcond,
+                 elm_bias_start, elm_bias_end,
                  y_train_true=y_train_pred, random_seed=random_seed, include_bias=True)
 
 
@@ -259,7 +260,8 @@ def backward(model, activation, x):
 ############### CLEAN THE CODE BELOW
 
 def swim(x_train, y_train_true, n_hidden_layers, n_neurons, f_activation,
-         parameter_sampler, sample_uniformly, rcond, random_seed=1):
+         parameter_sampler, sample_uniformly, rcond, elm_bias_start, elm_bias_end,
+         random_seed=1):
     """
     SWIM Implementation
     """
@@ -271,7 +273,8 @@ def swim(x_train, y_train_true, n_hidden_layers, n_neurons, f_activation,
     steps = []
     for k_layer in range(n_hidden_layers):
         # random_seed is set as 'random_seed + k_layer * 12345'
-        steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation, parameter_sampler=parameter_sampler, sample_uniformly=sample_uniformly, random_seed=random_seed + k_layer * 12345)))
+        steps.append((f"dense{k_layer+1}", Dense(layer_width=n_neurons[k_layer], activation=f_activation, elm_bias_start=elm_bias_start, elm_bias_end=elm_bias_end,
+                                                 parameter_sampler=parameter_sampler, sample_uniformly=sample_uniformly, random_seed=random_seed + k_layer * 12345)))
     steps.append(("linear", Linear(regularization_scale=rcond)))
     model = Pipeline(steps=steps, verbose=False)
     model.fit(x_train, y_train_true)

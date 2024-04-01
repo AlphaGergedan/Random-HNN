@@ -58,6 +58,8 @@ parser.add_argument('-trainrandomseedstart', type=int, help='Start seed for trai
 parser.add_argument('-testrandomseedstart', type=int, help='Start seed for test set generation', required=True)
 parser.add_argument('-modelrandomseedstart', type=int, help='Start seed for model param generation', required=True)
 parser.add_argument('-includebias', help='Whether to include bias in the network', action='store_true', default=False)
+parser.add_argument('-elmbiasstart', type=float, help='Bias start for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
+parser.add_argument('-elmbiasend', type=float, help='Bias end for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
 
 parser.add_argument('-solvetrue', help='Solves using true function values', action='store_true', default=False)
 
@@ -106,6 +108,8 @@ domain_params = {
     "test_random_seed_start": args.testrandomseedstart,  # will be set uniquely for each run
     "repeat": args.repeat,
     "solvetrue": args.solvetrue,                    # indicates whether true function values are being solved, insted of the PDE, if this is set to true, a classical regression problem is experimented
+    "elm_bias_start": args.elmbiasstart,            # bias start in elm hidden layers
+    "elm_bias_end": args.elmbiasend,                # bias end in elm hidden layers
 }
 
 elm_params = {
@@ -230,7 +234,8 @@ if args.solvetrue:
             print('Entering swim..')
             t_start = time()
             model = swim(x_train, y_train_true, model_params["n_hidden_layers"], model_params["n_neurons"], f_activation,
-                         model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"], random_seed=model_random_seed)
+                         model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"],
+                         domain_params["elm_bias_start"], domain_params["elm_bias_end"], random_seed=model_random_seed)
             t_end = time()
             print(f'swim took {t_end - t_start} seconds')
 
@@ -373,7 +378,9 @@ for i in range(domain_params['repeat']):
         t_start = time()
         # TODO specify layers too
         model = hswim(x_train, y_train_derivs_true, x0, f0,
-                      model_params["n_hidden_layers"], model_params["n_neurons"], f_activation, df_activation, model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"],
+                      model_params["n_hidden_layers"], model_params["n_neurons"], f_activation, df_activation,
+                      model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"],
+                      domain_params["elm_bias_start"], domain_params["elm_bias_end"],
                       y_train_true=y_train_true, random_seed=model_random_seed, include_bias=model_params["include_bias"])
         t_end = time()
         print(f'hswim took {t_end - t_start} seconds')
@@ -495,7 +502,7 @@ for qtrain in args.qtrain:
 for ptrain in args.ptrain:
     total_p *= ptrain
 
-dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}.pkl'))
+dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons{args.elmbiasstart}to{args.elmbiasend}elmbias_{args.system_name}.pkl'))
 print('-> Saved experiment results under: ' + args.output_dir)
 
 print()
