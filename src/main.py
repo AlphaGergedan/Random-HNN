@@ -60,6 +60,7 @@ parser.add_argument('-modelrandomseedstart', type=int, help='Start seed for mode
 parser.add_argument('-includebias', help='Whether to include bias in the network', action='store_true', default=False)
 parser.add_argument('-elmbiasstart', type=float, help='Bias start for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
 parser.add_argument('-elmbiasend', type=float, help='Bias end for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
+parser.add_argument('-noise', type=float, help='Noise to add to the train set. Noise is added as gaussian noise to the points before evaluating the Hamiltonian value.', required=False)
 
 parser.add_argument('-solvetrue', help='Solves using true function values', action='store_true', default=False)
 
@@ -78,6 +79,10 @@ assert len(args.nneurons) == args.nhiddenlayers
 
 # parse system
 H, dH = parse_system_name(args.system_name)
+
+
+NOISE_SEED = 9922381
+
 
 # parse domain boundaries
 q_train_lim, p_train_lim, q_test_lim, p_test_lim = [], [], [], []
@@ -110,6 +115,8 @@ domain_params = {
     "solvetrue": args.solvetrue,                    # indicates whether true function values are being solved, insted of the PDE, if this is set to true, a classical regression problem is experimented
     "elm_bias_start": args.elmbiasstart,            # bias start in elm hidden layers
     "elm_bias_end": args.elmbiasend,                # bias end in elm hidden layers
+    "noise": args.noise,
+    "noise_seed": NOISE_SEED,
 }
 
 elm_params = {
@@ -360,7 +367,13 @@ for i in range(domain_params['repeat']):
         # x_train = np.load(os.path.join(args.output_dir, f'TMP_X_TRAIN_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
         # column stacked (q_i, p_i): (N, 2*dof)
         x_train = np.column_stack([ q_train_grid.flatten() for q_train_grid in q_train_grids ] + [ p_train_grid.flatten() for p_train_grid in p_train_grids ])
-        y_train_derivs_true = domain_params["dH"](x_train)
+
+        # add noise
+        if args.noise:
+            noise_rng = np.random.default_rng(NOISE_SEED)
+            y_train_derivs_true = domain_params["dH"](x_train + noise_rng.normal(0, args.noise, x_train.shape))
+        else:
+            y_train_derivs_true = domain_params["dH"](x_train)
         # y_train_derivs_true = np.load(os.path.join(args.output_dir, f'TMP_Y_TRAIN_DERIVS_TRUE_{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons_{args.system_name}_run{i}.npy'))
 
         # input is of shape 2*dof, x0 = [[q_1, q_2, .., q_dof, p_1, p_2, .., p_dof]]
@@ -482,6 +495,7 @@ for i in range(domain_params['repeat']):
     train_random_seed += 1
     test_random_seed += 1
     model_random_seed += 1
+    NOISE_SEED += 1
 
     experiment['runs'].append(current_run)
 
@@ -502,7 +516,7 @@ for qtrain in args.qtrain:
 for ptrain in args.ptrain:
     total_p *= ptrain
 
-dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons{args.elmbiasstart}to{args.elmbiasend}elmbias_{args.system_name}.pkl'))
+dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons{args.elmbiasstart}to{args.elmbiasend}elmbiasnoise{args.noise}_{args.system_name}.pkl'))
 print('-> Saved experiment results under: ' + args.output_dir)
 
 print()
