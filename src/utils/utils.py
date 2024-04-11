@@ -1,8 +1,16 @@
-from activations import relu, tanh, sigmoid, elu, identity, gaussian, gelu, silu, softplus
-from hamiltonians import single_pendulum, lotka_volterra, double_pendulum, trigonometric
+"""
+src/utils/utils.py
+
+This file contains all other utils.
+
+author: Atamert Rahma (rahma@in.tum.de)
+"""
+from activations.index import relu, d_relu, leaky_relu, d_leaky_relu, sigmoid, d_sigmoid, elu, d_elu, tanh, d_tanh, identity, d_identity, gelu, d_gelu, silu, d_silu, softplus, d_softplus, gaussian, d_gaussian
+from hamiltonians.index import SinglePendulum, LotkaVolterra, DoublePendulum
 from error_functions.index import mean_absolute_error, mean_squared_error, l2_error, l2_error_relative
 import numpy as np
 from joblib import load
+
 
 def parse_activation(activation):
     """
@@ -14,26 +22,27 @@ def parse_activation(activation):
     """
     match activation:
         case "relu":
-            return relu.relu, relu.d_relu
+            return relu, d_relu
         case "leaky_relu":
-            return relu.leaky_relu, relu.d_leaky_relu
+            return leaky_relu, d_leaky_relu
         case "elu":
-            return elu.elu, elu.d_elu
+            return elu, d_elu
         case "tanh":
-            return tanh.tanh, tanh.d_tanh
+            return tanh, d_tanh
         case "sigmoid":
-            return sigmoid.sigmoid, sigmoid.d_sigmoid
+            return sigmoid, d_sigmoid
         case "gaussian":
-            return gaussian.gaussian, gaussian.d_gaussian
+            return gaussian, d_gaussian
         case "gelu":
-            return gelu.gelu, gelu.d_gelu
+            return gelu, d_gelu
         case "silu":
-            return silu.silu, silu.d_silu
+            return silu, d_silu
         case "softplus":
-            return softplus.softplus, softplus.d_softplus
+            return softplus, d_softplus
         case _:
             # default to identity
-            return identity.identity, identity.d_identity
+            return identity, d_identity
+
 
 def parse_system_name(system_name):
     """
@@ -43,23 +52,21 @@ def parse_system_name(system_name):
     """
     match system_name:
         case "single_pendulum":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=1)
+            system = SinglePendulum(m=1, l=1, g=1, f=1)
         case "single_pendulum_5_freq":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=5)
+            system = SinglePendulum(m=1, l=1, g=1, f=5)
         case "single_pendulum_10_freq":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=10)
+            system = SinglePendulum(m=1, l=1, g=1, f=10)
         case "single_pendulum_15_freq":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=15)
+            system = SinglePendulum(m=1, l=1, g=1, f=15)
         case "single_pendulum_20_freq":
-            system = single_pendulum.SinglePendulum(m=1, l=1, g=1, f=20)
+            system = SinglePendulum(m=1, l=1, g=1, f=20)
         case "lotka_volterra":
-            system = lotka_volterra.LotkaVolterra()
+            system = LotkaVolterra()
+        case "lotka_volterra_large":
+            system = LotkaVolterra(alpha=3.5, beta=0.025, gamma=10, delta=0.07)
         case "double_pendulum":
-            system = double_pendulum.DoublePendulum()
-        case "trigonometric":
-            system = trigonometric.Trigonometric(freq=1)
-        case "trigonometric_2_freq":
-            system = trigonometric.Trigonometric(freq=2)
+            system = DoublePendulum()
         case _:
             raise ValueError("System not defined")
 
@@ -132,6 +139,7 @@ def get_summary(experiment, models, datasets, types, error_functions, stats):
                     for model in models:
                         # e.g. 'ELM'
                         results = get_results(experiment, model, dataset, type, error_function)
+                        mean_train_time = np.mean(get_train_times(experiment, model))
                         match stat:
                             case 'min':
                                 error = np.min(results)
@@ -145,6 +153,7 @@ def get_summary(experiment, models, datasets, types, error_functions, stats):
                                 raise ValueError("Unknown stat")
 
                         summary.append(f'- {model}   \t: {str(error)}')
+                        summary.append(f'- mean time \t: {str(mean_train_time)}')
     return "\n".join(summary)
 
 def get_median_from_experiment(path_to_experiment, model_name="ELM", error_function="l2_error_relative", verbose=False):
@@ -161,8 +170,8 @@ def get_median_from_experiment(path_to_experiment, model_name="ELM", error_funct
         print(f"-- Experiment Details --")
         print(f"DOMAIN\n{experiment['domain_params']}")
         print(f"{model_name}\n{experiment[model_name.lower().replace('-','') + '_params']}")
-    # errors = [ run['test_function_error'][model_name]['error_function'] for run in experiment['runs'] ]
-    errors = [ run['test_errors'][model_name][error_function] for run in experiment['runs'] ]
+    errors = [ run['test_function_errors'][model_name][error_function] for run in experiment['runs'] ]
+    # errors = [ run['test_errors'][model_name][error_function] for run in experiment['runs'] ]
     median_index = np.argsort(errors)[len(errors)//2]
     median_run = experiment['runs'][median_index]
 
