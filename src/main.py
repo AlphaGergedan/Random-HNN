@@ -61,6 +61,7 @@ parser.add_argument('-includebias', help='Whether to include bias in the network
 parser.add_argument('-elmbiasstart', type=float, help='Bias start for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
 parser.add_argument('-elmbiasend', type=float, help='Bias end for ELM hidden layers, it is sampled uniformly from [start,end]', required=True)
 parser.add_argument('-noise', type=float, help='Noise to add to the train set. Noise is added as gaussian noise to the points before evaluating the Hamiltonian value.', required=False)
+parser.add_argument('-resampleduplicates', help='Whether to resample from data if duplicate weights are detected until getting unique weights.', action='store_true', default=False)
 
 parser.add_argument('-solvetrue', help='Solves using true function values', action='store_true', default=False)
 
@@ -106,41 +107,41 @@ domain_params = {
     "system_name": args.system_name, "H": H, "dH": dH, "dof": args.dof,
     "q_train": args.qtrain, "p_train": args.ptrain, "q_train_lim": q_train_lim, "p_train_lim": p_train_lim,
     "q_test": args.qtest, "p_test": args.ptest,  "q_test_lim": q_test_lim, "p_test_lim": p_test_lim,
-    # Recommended is to have equal number of points to the number of parameters of the network
-    # in our case number of params are = 4M + 1
     "train_set_linspaced": args.trainsetlinspaced,
-    "train_random_seed_start": args.trainrandomseedstart, # will be set uniquely for each run
-    "test_random_seed_start": args.testrandomseedstart,  # will be set uniquely for each run
+    "train_random_seed_start": args.trainrandomseedstart,
+    "test_random_seed_start": args.testrandomseedstart,
     "repeat": args.repeat,
-    "solvetrue": args.solvetrue,                    # indicates whether true function values are being solved, insted of the PDE, if this is set to true, a classical regression problem is experimented
-    "elm_bias_start": args.elmbiasstart,            # bias start in elm hidden layers
-    "elm_bias_end": args.elmbiasend,                # bias end in elm hidden layers
+    "solvetrue": args.solvetrue,
+    "elm_bias_start": args.elmbiasstart,
+    "elm_bias_end": args.elmbiasend,
     "noise": args.noise,
     "noise_seed": NOISE_SEED,
 }
 
 elm_params = {
-    "name": "ELM",                                  # discriminative name for the model
-    "n_neurons": args.nneurons,                     # number of hidden nodes as a list, where each entry corresponds to a hidden layer width
-    "n_hidden_layers": args.nhiddenlayers,          # number of hidden layers
-    "activation": args.activation,                  # activation function
+    "name": "ELM",
+    "n_neurons": args.nneurons,
+    "n_hidden_layers": args.nhiddenlayers,
+    "activation": args.activation,
     "parameter_sampler": "random",                  # weight sampling strategy, random for ELM
     "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
-    "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
-    "include_bias": args.includebias,               # bias in linear layer
+    "rcond": args.rcond,
+    "resample_duplicates": args.resampleduplicates,  # this parameter is ignored in ELM, since in normal distribution it is almost impossible to get the same parameter
+    "model_random_seed_start": args.modelrandomseedstart, # for reproducability, will be set uniquely for each run
+    "include_bias": args.includebias,
 }
 uswim_params = {
-    "name": "U-SWIM",                               # discriminative name for the model
-    "n_neurons": args.nneurons,                     # number of hidden nodes as a list, where each entry corresponds to a hidden layer width
-    "n_hidden_layers": args.nhiddenlayers,          # number of hidden layers
-    "activation": args.activation,                  # activation function
-    "parameter_sampler": args.parametersampler,     # weight sampling strategy
-    "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights
-    "rcond": args.rcond,                            # regularization in lstsq in the linear layer
-    #"random_seed": None,#98765                      # for reproducability, will be set uniquely for each run
-    "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
-    "include_bias": args.includebias,               # bias in linear layer
+    "name": "U-SWIM",
+    "n_neurons": args.nneurons,
+    "n_hidden_layers": args.nhiddenlayers,
+    "activation": args.activation,
+    "parameter_sampler": args.parametersampler,
+    "sample_uniformly": True,                       # whether to use uniform distribution for data point picking when sampling the weights, True for uniform SWIM
+    "rcond": args.rcond,
+    "resample_duplicates": args.resampleduplicates,
+    #"model_random_seed_start": None,#98765                      # for reproducability, will be set uniquely for each run
+    "model_random_seed_start": args.modelrandomseedstart,       # for reproducability, will be set uniquely for each run, is set to 98765
+    "include_bias": args.includebias,
 }
 aswim_params = {
     "name": "A-SWIM",                               # discriminative name for the model
@@ -150,6 +151,7 @@ aswim_params = {
     "parameter_sampler": args.parametersampler,     # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights, if set to false, we use approximate values to compute the prob. distribution
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
+    "resample_duplicates": args.resampleduplicates,
     "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias,               # bias in linear layer
 }
@@ -161,6 +163,7 @@ swim_params = {
     "parameter_sampler": args.parametersampler,     # weight sampling strategy
     "sample_uniformly": False,                      # whether to use uniform distribution for data point picking when sampling the weights
     "rcond": args.rcond,                            # regularization in lstsq in the linear layer
+    "resample_duplicates": args.resampleduplicates,
     "model_random_seed_start": args.modelrandomseedstart,                            # for reproducability, will be set uniquely for each run
     "include_bias": args.includebias                # bias in linear layer
 }
@@ -394,7 +397,7 @@ for i in range(domain_params['repeat']):
                       model_params["n_hidden_layers"], model_params["n_neurons"], f_activation, df_activation,
                       model_params["parameter_sampler"], model_params["sample_uniformly"], model_params["rcond"],
                       domain_params["elm_bias_start"], domain_params["elm_bias_end"],
-                      y_train_true=y_train_true, random_seed=model_random_seed, include_bias=model_params["include_bias"])
+                      y_train_true=y_train_true, random_seed=model_random_seed, include_bias=model_params["include_bias"], resample_duplicates=model_params["resample_duplicates"])
         t_end = time()
         print(f'hswim took {t_end - t_start} seconds')
 
@@ -516,7 +519,7 @@ for qtrain in args.qtrain:
 for ptrain in args.ptrain:
     total_p *= ptrain
 
-dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons{args.elmbiasstart}to{args.elmbiasend}elmbiasnoise{args.noise}_{args.system_name}.pkl'))
+dump(experiment, os.path.join(args.output_dir, f'{total_q*total_p}domain{args.qtrain}qtrain{args.ptrain}ptrain{args.nneurons}neurons{args.elmbiasstart}to{args.elmbiasend}elmbiasnoise{args.noise}resampleduplicates{args.resampleduplicates}_{args.system_name}.pkl'))
 print('-> Saved experiment results under: ' + args.output_dir)
 
 print()
