@@ -46,7 +46,8 @@ class DoublePendulum():
         # q := position \in R^{n} = R^{2}
         # p := momentum \in R^{n} = R^{2}
         # output is array of values [y_1, y_2, ...] where y_i is a real number (1-dimensional)
-        assert x.shape == (x.shape[0],4)
+        # assert x.shape == (x.shape[0],4)
+        x = x.reshape(-1,4)
         (q1,q2,p1,p2) = x[:,0], x[:,1], x[:,2], x[:,3]
         f = ( (self.m2 * self.l2**2 * p1**2 + (self.m1 + self.m2) * self.l1**2 * p2**2 - 2 * self.m2 * self.l1 * self.l2 * p1 * p2 * np.cos(q1 - q2) ) / (2 * self.m2 * self.l1**2 * self.l2**2 * (self.m1 + self.m2 * np.sin(q1 - q2)**2)) ) - (self.m1 + self.m2) * self.g * self.l1 * np.cos(q1) - self.m2 * self.g * self.l2 * np.cos(q2)
         return f.reshape(-1, 1)
@@ -60,12 +61,16 @@ class DoublePendulum():
         """
         # x is same as above
         # output is array of values [y_1, y_2, ...] where y_i = (dH/dq1, dH/dq2, dH/dp1, dH/dp2)
-        assert x.shape == (x.shape[0],4)
+        # assert x.shape == (x.shape[0],4)
+        x = x.reshape(-1, 4)
         (q1,q2,p1,p2) = x[:,0], x[:,1], x[:,2], x[:,3]
 
         # define helper equations used commonly in dH/dq1 and dH/dq2
         h1 = (p1 * p2 * np.sin(q1 - q2)) / (self.l1 * self.l2 * (self.m1 + self.m2 * np.sin(q1 - q2)**2))
         h2 = (self.m2 * self.l2**2 * p1**2 + (self.m1 + self.m2) * self.l1**2 * p2**2 - 2 * self.m2 * self.l1 * self.l2 * p1 * p2 * np.cos(q1 - q2)) / (2 * self.l1**2 * self.l2**2 * (self.m1 + self.m2 * np.sin(q1 - q2)**2)**2)
+
+        # from paper wu-2020 it is defined without the square in the last term
+        # h2 = (self.m2 * self.l2**2 * p1**2 + (self.m1 + self.m2) * self.l1**2 * p2**2 - 2 * self.m2 * self.l1 * self.l2 * p1 * p2 * np.cos(q1 - q2)) / (2 * self.l1**2 * self.l2**2 * (self.m1 + self.m2 * np.sin(q1 - q2)**2))
 
         dq1 = (self.m1 + self.m2) * self.g * self.l1 * np.sin(q1) + h1 - h2 * np.sin(2 * (q1 - q2))
         dq2 = self.m2 * self.g * self.l2 * np.sin(q2) - h1 + h2 * np.sin(2 * (q1 - q2))
