@@ -25,7 +25,7 @@ parser.add_argument('-logscale', help='Plot in log scale', action='store_true', 
 args = parser.parse_args()
 
 model_names_to_plot = ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM']
-types_to_plot = ['losses', 'errors']
+types_to_plot = ['gradient_errors', 'function_errors']
 error_functions_to_plot = ['l2_error_relative']
 
 #############################
@@ -35,13 +35,13 @@ error_functions_to_plot = ['l2_error_relative']
 # we will fill the table below and aggregate the results of the experiments
 results = {
     "train": {
-        "losses": {
+        "gradient_errors": {
             "ELM": { "min": [], "median": [], "mean": [], "max": [], },
             "U-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "A-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "SWIM": { "min": [], "median": [], "mean": [], "max": [], },
         },
-        "errors": {
+        "function_errors": {
             "ELM": { "min": [], "median": [], "mean": [], "max": [], },
             "U-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "A-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
@@ -49,13 +49,13 @@ results = {
         },
     },
     "test": {
-        "losses": {
+        "gradient_errors": {
             "ELM": { "min": [], "median": [], "mean": [], "max": [], },
             "U-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "A-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "SWIM": { "min": [], "median": [], "mean": [], "max": [], },
         },
-        "errors": {
+        "function_errors": {
             "ELM": { "min": [], "median": [], "mean": [], "max": [], },
             "U-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
             "A-SWIM": { "min": [], "median": [], "mean": [], "max": [], },
@@ -70,19 +70,17 @@ results = {
     }
 }
 
+
 # fill the domain sizes here
 domain_sizes = []
+n_runs = 0
 
 for f in args.file:
     # { domain_params, elm_params, uswim_params, aswim_params, swim_params, runs }
     experiment = load(f)
 
     # will be used in the general plots
-    domain_size = 1
-    for q in experiment['domain_params']['q_train']:
-        domain_size *= q
-    for p in experiment['domain_params']['p_train']:
-        domain_size *= p
+    domain_size = experiment['domain_params']['train_set_size']
     domain_sizes.append(domain_size)
 
 
@@ -91,23 +89,52 @@ for f in args.file:
     print(experiment['domain_params'])
     print()
 
-    print(get_summary(experiment, model_names_to_plot, ['train', 'test'], types_to_plot, error_functions_to_plot, stats=['min', 'median', 'mean']))
+    print(f'-> Experiment keys: {experiment.keys()}')
+    print(f'-> n_runs         : {len(experiment["runs"])}')
+    print(f'-> run keys       : {experiment["runs"][0].keys()}')
+    print(f'-> run[funcerr]   : {experiment["runs"][0]["train_function_errors"].keys()}')
+
+    print(get_summary(experiment, model_names_to_plot, ['train', 'test'], types_to_plot, ['l2_error_relative', 'mean_squared_error'], stats=['min', 'median', 'mean']))
 
     n_runs = dict(experiment['domain_params'])['repeat']
+    print(f"n_runs: {n_runs}")
+    assert n_runs == 100 or n_runs == 50 or n_runs == 10 or n_runs == 5
 
     # for each experiment plot train_loss, test_loss, train_error, test_error plots (4)
     # where on the x-axis we see run number and on y-axis we see error function
     for dataset in ['train', 'test']:
-        for type in ['losses', 'errors']:
+        for type in types_to_plot:
             elm_l2_rel = get_results(experiment, 'ELM', dataset, type, 'l2_error_relative')
             uswim_l2_rel = get_results(experiment, 'U-SWIM', dataset, type, 'l2_error_relative')
             aswim_l2_rel = get_results(experiment, 'A-SWIM', dataset, type, 'l2_error_relative')
             swim_l2_rel = get_results(experiment, 'SWIM', dataset, type, 'l2_error_relative')
+            # elm_l2_rel = get_results(experiment, 'ELM', dataset, type, 'mean_squared_error')
+            # uswim_l2_rel = get_results(experiment, 'U-SWIM', dataset, type, 'mean_squared_error')
+            # aswim_l2_rel = get_results(experiment, 'A-SWIM', dataset, type, 'mean_squared_error')
+            # swim_l2_rel = get_results(experiment, 'SWIM', dataset, type, 'mean_squared_error')
             ys = [ elm_l2_rel, uswim_l2_rel, aswim_l2_rel, swim_l2_rel ]
-            plot_comparison(range(1, n_runs+1), ys, [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [1,n_runs],
-                            r'$i$th Run', r'Rel. $L^2$ error', ['ELM ' + dataset + ' ' + type, 'U-SWIM ' + dataset + ' ' + type, 'A-SWIM ' + dataset + ' ' + type, 'SWIM ' + dataset + ' ' + type],
-                            logscale=args.logscale, verbose=False,
-                            save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_l2_rel.pdf'))
+            if n_runs == 10:
+                plot_comparison(range(1, n_runs+1), ys, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [1,n_runs],
+                                r'$i$th run', r'Rel. $L^2$ error', legends=None,
+                                # r'$i$th Run', r'MSE', ['ELM ' + dataset + ' ' + type, 'U-SWIM ' + dataset + ' ' + type, 'A-SWIM ' + dataset + ' ' + type, 'SWIM ' + dataset + ' ' + type],
+                                logscale=args.logscale, verbose=False,
+                                save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_l2_rel.pdf'))
+                                # save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_mse.pdf'))
+            elif n_runs == 100:
+                plot_comparison(range(1, n_runs+1), ys, [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [1,n_runs],
+                                r'$i$th run', r'Rel. $L^2$ error', legends=None,
+                                # r'$i$th Run', r'MSE', ['ELM ' + dataset + ' ' + type, 'U-SWIM ' + dataset + ' ' + type, 'A-SWIM ' + dataset + ' ' + type, 'SWIM ' + dataset + ' ' + type],
+                                logscale=args.logscale, verbose=False,
+                                save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_l2_rel.pdf'))
+                                # save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_mse.pdf'))
+            elif n_runs == 5:
+                plot_comparison(range(1, n_runs+1), ys, [0, 1, 2, 3, 4, 5], [1,n_runs],
+                                r'$i$th run', r'Rel. $L^2$ error', legends=None,
+                                # r'$i$th Run', r'MSE', ['ELM ' + dataset + ' ' + type, 'U-SWIM ' + dataset + ' ' + type, 'A-SWIM ' + dataset + ' ' + type, 'SWIM ' + dataset + ' ' + type],
+                                logscale=args.logscale, verbose=False,
+                                save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_l2_rel.pdf'))
+                                # save=os.path.join(args.output_dir, os.path.basename(f) + '_' + dataset + '_' + type + '_mse.pdf'))
+            else: raise ValueError("Unexpected number of runs")
 
             if args.hist:
                 # plot average weight and biases hists
@@ -131,10 +158,22 @@ for f in args.file:
     aswim_train_times = get_train_times(experiment, 'A-SWIM')
     swim_train_times = get_train_times(experiment, 'SWIM')
     ys = [ elm_train_times, uswim_train_times, aswim_train_times, swim_train_times ]
-    plot_comparison(range(1, n_runs+1), ys, [1, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [1,n_runs],
-                    r'$i$th Run', r'Train time in seconds', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
-                    logscale=args.logscale, verbose=False,
-                    save=os.path.join(args.output_dir, os.path.basename(f) + '_train_times.pdf'))
+    if n_runs == 100:
+        plot_comparison(range(1, n_runs+1), ys, [10, 20, 30, 40, 50, 60, 70, 80, 90, 100], [1,n_runs],
+                        r'$i$th run', r'Time in [s]', legends=None,
+                        logscale=args.logscale, verbose=False,
+                        save=os.path.join(args.output_dir, os.path.basename(f) + '_train_times.pdf'))
+    elif n_runs == 10:
+        plot_comparison(range(1, n_runs+1), ys, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], [1,n_runs],
+                        r'$i$th run', r'Time in [s]', legends=None,
+                        logscale=args.logscale, verbose=False,
+                        save=os.path.join(args.output_dir, os.path.basename(f) + '_train_times.pdf'))
+    elif n_runs == 5:
+        plot_comparison(range(1, n_runs+1), ys, [1, 2, 3, 4, 5], [1,n_runs],
+                        r'$i$th run', r'Time in [s]', legends=None,
+                        logscale=args.logscale, verbose=False,
+                        save=os.path.join(args.output_dir, os.path.basename(f) + '_train_times.pdf'))
+    else: raise ValueError("Unexpected number of runs")
     # aggregate training times to plot scaling
     for model in model_names_to_plot:
         results['train_times'][model]['min'].append(np.min(get_train_times(experiment, model)))
@@ -145,7 +184,7 @@ for f in args.file:
 # create a general plot (medians, means, mins) with train_loss, test_loss, train_error, test_error plots (4, 4, 4)
 # where on the x-axis we see domain size and on y-axis we see error function
 for dataset in ['train', 'test']:
-    for type in ['losses', 'errors']:
+    for type in types_to_plot:
         for stat in ['median', 'mean', 'min', 'max']:
             ys = [
                 results[dataset][type]['ELM'][stat],
@@ -154,9 +193,11 @@ for dataset in ['train', 'test']:
                 results[dataset][type]['SWIM'][stat],
             ]
             plot_comparison(domain_sizes, ys, domain_sizes, [np.min(domain_sizes), np.max(domain_sizes)],
-                            r'Train Set Size', r'Rel. $L^2$ error, ' + stat + ' of 100 runs', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
+                            r'Train set size', r'Rel. $L^2$ error, ' + stat + f' of {n_runs} runs', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
+                            # r'Train Set Size', r'MSE, ' + stat + f' of {n_runs} runs', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
                             logscale=args.logscale, verbose=False,
                             save=os.path.join(args.output_dir, '_'.join([stat, dataset, type, 'l2_rel']) + '.pdf'), rotate_xticks=True)
+                            # save=os.path.join(args.output_dir, '_'.join([stat, dataset, type, 'mse']) + '.pdf'), rotate_xticks=True)
 
 
 # plot training time scaling
@@ -168,6 +209,6 @@ for stat in ['median', 'mean', 'min', 'max']:
         results['train_times']['SWIM'][stat],
     ]
     plot_comparison(domain_sizes, ys, domain_sizes, [np.min(domain_sizes), np.max(domain_sizes)],
-                    r'Train Set Size', r'Train time in seconds, ' + stat + ' of 100 runs', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
+                    r'Train set size', r'Time in [s], ' + stat + f' of {n_runs} runs', ['ELM', 'U-SWIM', 'A-SWIM', 'SWIM'],
                     logscale=args.logscale, verbose=False,
                     save=os.path.join(args.output_dir, '_'.join([stat, 'train_times']) + '.pdf'), rotate_xticks=True)
