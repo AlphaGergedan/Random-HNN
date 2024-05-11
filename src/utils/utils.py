@@ -6,7 +6,7 @@ This file contains all other utils.
 author: Atamert Rahma (rahma@in.tum.de)
 """
 from activations.index import relu, d_relu, leaky_relu, d_leaky_relu, sigmoid, d_sigmoid, elu, d_elu, tanh, d_tanh, identity, d_identity, gelu, d_gelu, silu, d_silu, softplus, d_softplus, gaussian, d_gaussian
-from hamiltonians.index import SinglePendulum, LotkaVolterra, DoublePendulum
+from hamiltonians.index import SinglePendulum, LotkaVolterra, DoublePendulum, HenonHeiles
 from error_functions.index import mean_absolute_error, mean_squared_error, l2_error, l2_error_relative
 import numpy as np
 from joblib import load
@@ -52,21 +52,31 @@ def parse_system_name(system_name):
     """
     match system_name:
         case "single_pendulum":
-            system = SinglePendulum(m=1, l=1, g=1, f=1)
+            system = SinglePendulum(m=1., l=1., g=1., f=1.)
         case "single_pendulum_5_freq":
-            system = SinglePendulum(m=1, l=1, g=1, f=5)
+            system = SinglePendulum(m=1., l=1., g=1., f=5.)
         case "single_pendulum_10_freq":
-            system = SinglePendulum(m=1, l=1, g=1, f=10)
+            system = SinglePendulum(m=1., l=1., g=1., f=10.)
         case "single_pendulum_15_freq":
-            system = SinglePendulum(m=1, l=1, g=1, f=15)
+            system = SinglePendulum(m=1., l=1., g=1., f=15.)
         case "single_pendulum_20_freq":
-            system = SinglePendulum(m=1, l=1, g=1, f=20)
+            system = SinglePendulum(m=1., l=1., g=1., f=20.)
         case "lotka_volterra":
             system = LotkaVolterra()
         case "lotka_volterra_large":
-            system = LotkaVolterra(alpha=3.5, beta=0.025, gamma=10, delta=0.07)
+            system = LotkaVolterra(alpha=3.5, beta=0.025, gamma=10., delta=0.07)
         case "double_pendulum":
             system = DoublePendulum()
+        case "henon_heiles_0_alpha":
+            system = HenonHeiles(alpha=0.)
+        case "henon_heiles_0.5_alpha":
+            system = HenonHeiles(alpha=0.5)
+        case "henon_heiles_0.7_alpha":
+            system = HenonHeiles(alpha=0.7)
+        case "henon_heiles_0.9_alpha":
+            system = HenonHeiles(alpha=0.9)
+        case "henon_heiles_1_alpha":
+            system = HenonHeiles(alpha=1.)
         case _:
             raise ValueError("System not defined")
 
