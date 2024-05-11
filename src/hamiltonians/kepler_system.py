@@ -23,7 +23,7 @@ class KeplerSystem():
     def dH(self, x):
         # x is same as above
         # output is array of values [y_1, y_2, ...] where y_i = (dH/dq1, dH/dq2, dH/dp1, dH/dp2)
-        assert x.shape == (x.shape[0],4)
+        assert x.shape == (x.shape[0],8)
         (q1,q2,q3,q4,p1,p2,p3,p4) = x[:,0], x[:,1], x[:,2], x[:,3], x[:,4], x[:,5], x[:,6], x[:,7]
 
         # define helper equations used commonly in dH/dq1 and dH/dq2
@@ -41,4 +41,4 @@ class KeplerSystem():
 
         # (x.shape[0], 4)
         df = np.array([ dq1, dq2, dq3, dq4, dp1, dp2, dp3, dp4 ]).T
-        return df.reshape(-1, 4)
+        return df.reshape(-1, 8)

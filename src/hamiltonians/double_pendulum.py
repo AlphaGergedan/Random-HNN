@@ -10,7 +10,7 @@ class DoublePendulum():
     """
     2 dof
     """
-    def __init__(self, m1=1, m2=1, l1=1, l2=1, g=1):
+    def __init__(self, m1=1., m2=1., l1=1., l2=1., g=1.):
         """
         TODO setup specific
         m1: Mass of first pendulum

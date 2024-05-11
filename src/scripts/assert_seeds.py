@@ -3,6 +3,8 @@
 ########################
 import os, sys
 directory_to_prepend = os.path.abspath("./src")
+if not os.path.exists(directory_to_prepend):
+    raise RuntimeError("src directory not found")
 if directory_to_prepend not in sys.path:
     sys.path = [directory_to_prepend] + sys.path
 

@@ -7,7 +7,7 @@ class HenonHeiles():
     """
     2 dof
     """
-    def __init__(self, alpha=0):
+    def __init__(self, alpha=0.):
         """
         alpha: bifurcation parameter 0 <= alpha <= 1, sets the magnitude of the nonlinear potential function
         TODO: test on alpha = 0, 0.7, 0.9, 1 as they did in their paper han-2021, and they plot p2 and q2 with q1=0
@@ -28,8 +28,8 @@ class HenonHeiles():
         (q1,q2,p1,p2) = x[:,0], x[:,1], x[:,2], x[:,3]
 
         # define helper equations used commonly in dH/dq1 and dH/dq2
-        dq1 = q1 + self.alpha * (2*q1)
-        dq2 = q2 + self.alpha * (q1**2 - q2)
+        dq1 = q1 + self.alpha * (2*q1*q2)
+        dq2 = q2 + self.alpha * (q1**2 - q2**2)
         dp1 = p1
         dp2 = p2
 

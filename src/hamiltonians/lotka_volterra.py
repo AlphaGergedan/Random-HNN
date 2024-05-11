@@ -9,7 +9,7 @@ class LotkaVolterra():
 
     """
 
-    def __init__(self, alpha=-2, beta=-1, gamma=-1, delta=-1):
+    def __init__(self, alpha=-2., beta=-1., gamma=-1., delta=-1.):
         """
         Choose these parameters wisely, they change the phase plot.
         For the classical rabbit and fox model you can set

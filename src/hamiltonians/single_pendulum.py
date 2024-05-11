@@ -4,7 +4,7 @@ class SinglePendulum():
     """
     1 dof
     """
-    def __init__(self, m=1, l=1, g=1, f=1):
+    def __init__(self, m=1., l=1., g=1., f=1.):
         """
         TODO setup specific
         m: Mass of pendulum
