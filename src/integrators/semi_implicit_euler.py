@@ -2,15 +2,13 @@ import numpy as np
 
 class SemiImplicitEuler():
     """
-    ODE Solver, in our case for solving Hamiltonian systems
-    q_dot = dq/dt =  dH/dp
-    p_dot = dp/dt = -dH/dq
+    See symplectic euler, this is the explicit implementation of it for the first alternative:
 
-    q_next = q_prev + dt * q_dot(q_prev, p_prev) = q_prev + dt * dH/dp(q_prev, p_prev)
-    p_next = p_prev + dt * p_dot(q_next, p_prev) = p_prev - dt * dH/dq(q_next, p_prev)
+    Implicit q method:
+        q_next = q_prev + dt * q_dot(q_next, p_prev) = q_prev + dt * dH/dp(q_next, p_prev)
+        p_next = p_prev + dt * p_dot(q_next, p_prev) = p_prev - dt * dH/dq(q_next, p_prev)
 
-    this is the basic scheme for
-    q_next = TODO
+    For separable system this explicit implementation is the same as symplectic euler.
     """
 
     def __init__(self):
