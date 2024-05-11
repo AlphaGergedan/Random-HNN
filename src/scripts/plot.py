@@ -2,7 +2,7 @@
 ## FOR PLOTTING EXPERIMENT RESULTS ##
 #####################################
 import os, sys
-directory_to_prepend = os.path.abspath("./src")
+directory_to_prepend = os.path.abspath("../") # append src
 if directory_to_prepend not in sys.path:
     sys.path = [directory_to_prepend] + sys.path
 
