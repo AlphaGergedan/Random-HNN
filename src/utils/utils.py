@@ -1,9 +1,8 @@
 """
 src/utils/utils.py
 
-This file contains all other utils.
-
-author: Atamert Rahma (rahma@in.tum.de)
+This file contains all other utils, including parsing for command line arguments and inspecting a saved experiment,
+used in `src/main.py` and in notebooks.
 """
 from activations.index import relu, d_relu, leaky_relu, d_leaky_relu, sigmoid, d_sigmoid, elu, d_elu, tanh, d_tanh, identity, d_identity, gelu, d_gelu, silu, d_silu, softplus, d_softplus, gaussian, d_gaussian
 from hamiltonians.index import SinglePendulum, LotkaVolterra, DoublePendulum, HenonHeiles
@@ -137,6 +136,9 @@ def get_train_times(experiment, model="ELM"):
     return [ run['train_times'][model] for run in experiment['runs'] ]
 
 def get_summary(experiment, models, datasets, types, error_functions, stats):
+    """
+    Given an experiments outputs the result in a pretty format.
+    """
     summary = []
     for dataset in datasets:
         # e.g. train

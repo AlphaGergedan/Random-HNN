@@ -1,3 +1,9 @@
+"""
+src/utils/grid.py
+
+Used in `src/main.py` to create train and test sets
+"""
+
 import numpy as np
 
 def generate_uniform_train_test_set(train_set_size, train_q_lims, train_p_lims, train_rng, test_set_size, test_q_lims, test_p_lims, test_rng, dof):

@@ -1,3 +1,10 @@
+"""
+src/utils/plot.py
+
+Includes common matplotlib code to create plots,
+used in notebooks and `src/scripts/plot*.py` to create plots
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from error_functions.index import mean_absolute_error, mean_squared_error, l2_error, l2_error_relative

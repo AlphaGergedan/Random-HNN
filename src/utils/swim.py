@@ -3,8 +3,6 @@ src/utils/swim.py
 
 Bridges the gap between SWIM and HNNs by implementing
 the SWIM networks for solving Hamiltonian PDEs.
-
-author: Atamert Rahma (rahma@in.tum.de)
 """
 
 import numpy as np
