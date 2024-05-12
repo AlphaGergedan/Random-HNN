@@ -2,6 +2,7 @@
 
 ```
 .
+├── rahma_master_thesis.pdf # thesis pdf
 ├── plots                   # includes final plots used in the thesis
 ├── src                     # R-HNN implementation using swimnetworks module
 │   ├── main.py             # main function for running and saving R-HNN experiments
