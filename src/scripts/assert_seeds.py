@@ -1,3 +1,10 @@
+"""
+src/scripts/assert_seeds.py
+
+For double-checking the seed values used in the experiments. Checks all the runs in the experiment and see if the
+predetermined seed values are being used correctly.
+"""
+
 ########################
 ## FOR CHECKING SEEDS ##
 ########################
@@ -8,7 +15,7 @@ if not os.path.exists(directory_to_prepend):
 if directory_to_prepend not in sys.path:
     sys.path = [directory_to_prepend] + sys.path
 
-from joblib import load, dump
+from joblib import load
 import numpy as np
 import argparse
 

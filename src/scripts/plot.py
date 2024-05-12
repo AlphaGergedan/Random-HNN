@@ -1,3 +1,9 @@
+"""
+src/scripts/plot.py
+
+For creating plots from saved results, all train set size scaling plots are created using this script.
+"""
+
 #####################################
 ## FOR PLOTTING EXPERIMENT RESULTS ##
 #####################################

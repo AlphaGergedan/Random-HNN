@@ -1,3 +1,9 @@
+"""
+src/scripts/plot_neuronscaling.py
+
+For creating plots from saved results, all network width scaling plots are created using this script.
+"""
+
 #####################################
 ## FOR PLOTTING EXPERIMENT RESULTS ##
 #####################################

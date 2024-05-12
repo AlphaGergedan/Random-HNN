@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# batchmaker scripts for generating batch scripts
+# batchmaker scripts for generating batch scripts, this is just a template, similar is used in cluster.
 
 q_train=120
 p_train=50
